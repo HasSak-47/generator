@@ -110,6 +110,7 @@ impl TS {
             },
             Type::Undetermined(u) => panic!("Undetermined: {u:?} reached a TS generator",),
             Type::Null => format!("null",),
+            e => unimplemented!("{e:?}"),
         };
     }
 

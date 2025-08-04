@@ -64,7 +64,29 @@ pub enum Repr {
 impl Repr {}
 
 #[derive(PartialEq, Clone)]
+pub enum LiteralType {
+    String(String),
+    Uint(u64),
+    Int(i64),
+    Bool(bool),
+    Float(f64),
+}
+
+#[derive(PartialEq, Clone)]
+pub struct SumType{
+    pub tys: Vec<Type>,
+}
+
+impl SumType{
+    pub fn new(tys: Vec<Type>) -> Self{
+        return Self{tys}
+    }
+}
+
+#[derive(PartialEq, Clone)]
 pub enum Type {
+    Sum(SumType),
+    Literal(LiteralType),
     Primitive(PrimitiveType), // PT
     Repr(Repr),               // RT
     Optional(OptionType),     // T?
@@ -235,9 +257,35 @@ impl Display for Repr {
     }
 }
 
+impl Display for LiteralType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Int(v) => write!(f, "{v}")?,
+            Self::Uint(v) => write!(f, "{v}")?,
+            Self::Float(v) => write!(f, "{v}")?,
+            Self::String(v) => write!(f, "{v}")?,
+            Self::Bool(v) => write!(f, "{v}")?,
+        }
+
+        return Ok(());
+    }
+}
+
+impl Display for SumType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for ty in &self.tys{
+            write!(f, "or {ty}")?;
+        }
+
+        return Ok(())
+    }
+}
+
 impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Sum(s) => write!(f, "{s}")?,
+            Self::Literal(l) => write!(f, "{l}")?,
             Self::Primitive(p) => write!(f, "{p}")?,
             Self::Repr(r) => write!(f, "{r}")?,
             Self::Optional(o) => write!(f, "{o}")?,
@@ -283,9 +331,35 @@ impl Debug for Repr {
     }
 }
 
+impl Debug for LiteralType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Int(v) => write!(f, "{v}")?,
+            Self::Uint(v) => write!(f, "{v}")?,
+            Self::Float(v) => write!(f, "{v}")?,
+            Self::String(v) => write!(f, "{v}")?,
+            Self::Bool(v) => write!(f, "{v}")?,
+        }
+
+        return Ok(());
+    }
+}
+
+impl Debug for SumType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for ty in &self.tys{
+            write!(f, "or {ty}")?;
+        }
+
+        return Ok(())
+    }
+}
+
 impl Debug for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Sum(s) => write!(f, "{s}")?,
+            Self::Literal(l) => write!(f, "{l}")?,
             Self::Primitive(p) => write!(f, "{p:?}")?,
             Self::Repr(r) => write!(f, "{r:?}")?,
             Self::Optional(o) => write!(f, "{o:?}")?,

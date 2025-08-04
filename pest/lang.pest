@@ -22,14 +22,14 @@ operation      =  { "get" | "post" | "put" }
 path = ${ "\"" ~ inner ~ "\"" }
 
 member_field = ${ name ~ " "* ~ ":" ~ " "* ~ ty }
-ty           = ${ (sum_type | map_type | value_type |  into_type | repr_type | primitive_type | null_type | complex_type) ~ weird_mark* }
+ty           = ${ (sum_type | map_type | value_type | into_type | repr_type | primitive_type | null_type | complex_type) ~ weird_mark* }
 into_type    = ${ primitive_type ~ " "* ~ "as" ~ " "* ~ repr_type }
 
 map_type     = ${ "<" ~ " "* ~ primitive_type ~ " "* ~ "," ~ " "* ~ ty ~ " "* ~ ">" }
 complex_type = ${ name }
 
 value_type  = ${ value }
-sum_type    =  { "(" ~ ty ~ " "* ~ "or" ~ " "* ~ ty ~ ")" }
+sum_type    =  { "(" ~ ty ~ " "* ~ "|" ~ " "* ~ ty ~ ")" }
 weird_mark  = ${ (option_mark | array_mark) }
 option_mark = @{ "?" }
 array_mark  =  { "[" ~ prec? ~ "]" }
@@ -45,10 +45,11 @@ pprec          =  { "int" | "uint" | "float" | "string" }
 
 null_type = { "null" }
 
-value  = ${ string | int | float | bool }
+value  = ${ string | uint | int | float | bool }
 bool   = @{ "true" | "false" }
 float  = @{ sign? ~ (ASCII_DIGIT)+ ~ ("." ~ ASCII_DIGIT*)? }
 int    = @{ sign? ~ (ASCII_DIGIT)+ }
+uint    = @{ (ASCII_DIGIT)+ }
 sign   = @{ "-" | "+" }
 name   = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")+ }
 prec   = @{ ASCII_DIGIT+ }
