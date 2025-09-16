@@ -122,13 +122,7 @@ impl TS {
             Type::Literal(l) => {
                 format!("{l}")
             }
-<<<<<<< HEAD
-            e => unimplemented!("{e:?}"),
-            Type::Union(u) => self.get_union_signature(u),
-=======
             Type::Union(u) => self.ts_union_literal(u),
->>>>>>> f1bb606 (method renaming)
-
             Type::Undetermined(u) => {
                 panic!("Undetermined: {u:?} reached a TS generator {defs:#?}",)
             }
