@@ -159,6 +159,7 @@ impl TS {
         ty: &Type,
         defs: &Definitons,
     ) -> String {
+        assert!(ty.contains_into(defs));
         let name = name.as_ref();
 
         match ty {
@@ -191,6 +192,7 @@ impl TS {
         ty: &Type,
         defs: &Definitons,
     ) -> String {
+        assert!(ty.contains_into(defs));
         let name = name.as_ref();
 
         match ty {
@@ -541,6 +543,19 @@ impl Generator for TS {
                     &return_type,
                 ));
                 func_body.add_line("return j;".to_string());
+            }
+            Type::Array(arr) => {
+                if arr.ty.contains_into(defs) {
+                    func_body.add_line(format!(
+                        "return j.map(m => {});",
+                        self.build_into_domain_expression("m".to_string(), &arr.ty, defs),
+                    ));
+                } else {
+                    func_body.add_line(format!(
+                        "return j as {}",
+                        self.ts_type_literal(defs, &endpoint.return_type)
+                    ));
+                }
             }
             ty => func_body.add_line(format!("return j as {}", self.ts_type_literal(defs, ty))),
         }
