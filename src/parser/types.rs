@@ -110,11 +110,11 @@ impl UnionType {
         self.members.push(m);
     }
 
-    pub fn add_untagged_member(&mut self, ty: Type){
+    pub fn add_untagged_member(&mut self, ty: Type) {
         self.add_member(UnionMember::untagged(ty))
     }
 
-    pub fn add_tagged_member(&mut self, tag: String, ty: Type){
+    pub fn add_tagged_member(&mut self, tag: String, ty: Type) {
         self.add_member(UnionMember::tagged(tag, ty))
     }
 

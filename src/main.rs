@@ -18,8 +18,7 @@ use crate::generators::{python::FastApi, ts::TS};
 /// CLI surface exposed by `cargo run -- ...`.
 #[derive(Parser)]
 struct Cli {
-    #[arg(default_value_os_t = {PathBuf::from("./definitions.defs")})]
-    pub definitions: PathBuf,
+    pub definitions: Vec<PathBuf>,
 
     /// Split output into `<prefix>models` and `<prefix>endpoints` files instead of a single bundle.
     #[arg(short = 'S', long, default_value_t = false)]
@@ -48,7 +47,13 @@ fn main() -> Result<()> {
     // Parse CLI args, load the DSL, and hand the parsed AST to the requested generator.
     let cli = Cli::parse();
     let prefix = cli.prefix.unwrap_or(String::new());
-    let defs = Definitons::load_from_path(cli.definitions)?;
+    let mut defs = Definitons::new();
+    for def in cli.definitions {
+        defs.load_from_file(def)?;
+    }
+
+    defs.build_definitons();
+
     let (generator, extension): (Box<dyn Generator>, &str) = match cli.generator {
         Generators::Typescript(ts) => (Box::new(ts), "ts"),
         Generators::PythonFastApi(fastapi) => (Box::new(fastapi), "py"),

@@ -174,8 +174,8 @@ fn handle_member_field<'a>(p: Pair<'a, Rule>) -> Result<(String, Type)> {
 }
 
 /// Load the DSL file, parse it with pest, and translate the AST into `Definitons`.
-pub fn get_definitions<P: AsRef<Path>>(p: P) -> Result<Definitons> {
-    let mut file = File::open(p)?;
+pub fn add_definitions<P: AsRef<Path>>(defs: &mut Definitons, path: P) -> Result<()> {
+    let mut file = File::open(&path)?;
     let mut buf = String::new();
     file.read_to_string(&mut buf)?;
     let p = LangParser::parse(Rule::definitions, buf.as_str())?
@@ -187,8 +187,6 @@ pub fn get_definitions<P: AsRef<Path>>(p: P) -> Result<Definitons> {
         unreachable!("not a definition file!")
     }
 
-    let mut defs = Definitons::new();
-
     for inner in p.into_inner() {
         match inner.as_rule() {
             Rule::ty_definition => {
@@ -197,8 +195,16 @@ pub fn get_definitions<P: AsRef<Path>>(p: P) -> Result<Definitons> {
                 let ty = iter.next().unwrap();
                 assert_eq!(name.as_rule(), Rule::name);
                 assert_eq!(ty.as_rule(), Rule::ty);
+                let mut builder = TypeInformationBuilder::new_type(
+                    name.as_str().to_string(),
+                    handle_type(ty).unwrap(),
+                );
+                builder.set_path(&path);
+                let (line, col) = name.line_col();
+                builder.set_col(col);
+                builder.set_line(line);
 
-                defs.register_type(name.as_str().to_string(), handle_type(ty).unwrap());
+                defs.register_type(builder);
             }
             Rule::struct_definition => {
                 let mut iter = inner.into_inner();
@@ -206,7 +212,14 @@ pub fn get_definitions<P: AsRef<Path>>(p: P) -> Result<Definitons> {
                 assert!(name.as_rule() == Rule::name);
                 // TODO: handle extensions
                 let struct_ = handle_struct(iter.next().unwrap())?;
-                defs.register_type(name.as_str().to_string(), struct_);
+                let mut builder =
+                    TypeInformationBuilder::new_type(name.as_str().to_string(), struct_);
+                builder.set_path(&path);
+                let (line, col) = name.line_col();
+                builder.set_col(col);
+                builder.set_line(line);
+
+                defs.register_type(builder);
             }
             Rule::end_point => {
                 let mut iter = inner.into_inner().peekable();
@@ -243,7 +256,7 @@ pub fn get_definitions<P: AsRef<Path>>(p: P) -> Result<Definitons> {
         }
     }
 
-    return Ok(defs);
+    return Ok(());
 }
 
 #[cfg(test)]

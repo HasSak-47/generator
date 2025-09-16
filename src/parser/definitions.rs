@@ -2,7 +2,7 @@ use super::{endpoint::*, types::*};
 use crate::builder::Code;
 use anyhow::Result;
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Helper describing the wire/domain pair for a type that requires conversions.
 #[derive(Debug)]
@@ -12,12 +12,58 @@ struct SplitType {
     wire_name: String,
 }
 
+pub struct TypeInformationBuilder {
+    name: String,
+    ty: Type,
+    path: Option<PathBuf>,
+    line: Option<usize>,
+    col: Option<usize>,
+}
+
+impl TypeInformationBuilder {
+    pub fn new_type(name: String, ty: Type) -> Self {
+        return Self {
+            name,
+            ty,
+            path: None,
+            line: None,
+            col: None,
+        };
+    }
+
+    pub fn build_type(self) -> TypeInformation {
+        return TypeInformation {
+            name: self.name,
+            ty: self.ty,
+            path: self.path.unwrap(),
+            line: self.line.unwrap(),
+            col: self.col.unwrap(),
+            conversion: None,
+        };
+    }
+
+    pub fn set_path<P: AsRef<Path>>(&mut self, p: P) {
+        self.path = Some(p.as_ref().to_path_buf());
+    }
+
+    pub fn set_col(&mut self, col: usize) {
+        self.col = Some(col);
+    }
+
+    pub fn set_line(&mut self, line: usize) {
+        self.line = Some(line);
+    }
+}
+
 /// Metadata for a single named type in the DSL.
 #[derive(Debug)]
 pub struct TypeInformation {
     /// Name of the type
     pub name: String,
     pub ty: Type,
+    pub path: PathBuf,
+    pub line: usize,
+    pub col: usize,
     conversion: Option<SplitType>,
 }
 
@@ -26,6 +72,7 @@ impl TypeInformation {
     pub fn has_conversion(&self) -> bool {
         return self.conversion.is_some();
     }
+
     pub fn get_domain_type(&self) -> &Type {
         if let Some(con) = &self.conversion {
             &con.domain
@@ -48,15 +95,6 @@ impl TypeInformation {
         } else {
             &self.name
         }
-    }
-
-    #[allow(dead_code)]
-    pub fn new(name: String, ty: Type) -> Self {
-        return Self {
-            ty,
-            name,
-            conversion: None,
-        };
     }
 }
 
@@ -248,39 +286,30 @@ impl Definitons {
     }
 
     /// Insert a parsed `type` declaration into the definitions map.
-    pub fn register_type(&mut self, name: String, ty: Type) {
-        self.types.insert(
-            name.clone(),
-            TypeInformation {
-                name,
-                ty,
-                conversion: None,
-            },
-        );
+    pub fn register_type(&mut self, builder: TypeInformationBuilder) {
+        self.types
+            .insert(builder.name.clone(), builder.build_type());
     }
 
-    /// Load and normalize the DSL definitions file, annotating types with conversion metadata.
-    pub fn load_from_path<P: AsRef<Path>>(p: P) -> Result<Self> {
-        let mut defs = super::dsl::get_definitions(p)?;
-        defs.validate_type_references();
-        defs.populate_union_tags();
+    pub fn build_definitons(&mut self) {
+        self.validate_type_references();
 
         // I hate the borrow checker sometimes
         let mut new_types = HashMap::new();
-        for (name, ty) in &defs.types {
+        for (name, ty) in &self.types {
             if let Type::Union(u) = &ty.ty {
                 if u.kind == UnionKind::Untagged {
-                    defs.validate_untagged_union(u);
+                    self.validate_untagged_union(u);
                 }
             }
 
-            if !ty.ty.contains_into(&defs) {
+            if !ty.ty.contains_into(&self) {
                 continue;
             }
 
             let wire_name = format!("_{name}");
-            let wire = defs.convert_to_wire_type(&ty.ty);
-            let domain = defs.convert_to_domain_type(&ty.ty);
+            let wire = self.convert_to_wire_type(&ty.ty);
+            let domain = self.convert_to_domain_type(&ty.ty);
 
             new_types.insert(
                 name.clone(),
@@ -293,11 +322,16 @@ impl Definitons {
         }
 
         for (name, s) in new_types {
-            let t = defs.types.get_mut(&name).unwrap();
+            let t = self.types.get_mut(&name).unwrap();
             t.conversion = Some(s);
         }
+    }
 
-        return Ok(defs);
+    /// Load and normalize the DSL definitions file, annotating types with conversion metadata.
+    pub fn load_from_file<P: AsRef<Path>>(&mut self, p: P) -> Result<()> {
+        super::dsl::add_definitions(self, p)?;
+        self.populate_union_tags();
+        return Ok(());
     }
 
     /// Emit code for every domain type using the provided generator implementation.
