@@ -4,10 +4,7 @@ mod parser;
 #[cfg(test)]
 mod tests;
 
-use crate::{
-    builder::Code,
-    parser::dsl::{Definitons, Generator},
-};
+use crate::{builder::Code, parser::definitions::*};
 
 use std::{fs::File, io::Write, path::PathBuf};
 

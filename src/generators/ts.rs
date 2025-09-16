@@ -2,10 +2,7 @@ use std::fmt::Display;
 
 use crate::{
     builder::Code,
-    parser::{
-        dsl::{Definitons, EndPoint, EndPointParamKind, Generator},
-        types::{PrimitiveType, Repr, StructType, Type, UnionType},
-    },
+    parser::{definitions::*, endpoint::*, types::*},
 };
 
 use clap::{Parser, ValueEnum};
@@ -207,12 +204,11 @@ impl TS {
         }
     }
 
-    /// Create a shadow model where `Into` fields are renamed and converted to their source types.
-    fn translate_model(&self, model: &StructType, defs: &Definitons) -> StructType {
+    fn translate_struct(&self, ty: &StructType, defs: &Definitons) -> StructType {
         let mut translated = StructType {
             members: Vec::new(),
         };
-        for (pname, pty) in &model.members {
+        for (pname, pty) in &ty.members {
             if pty.contains_into(defs) {
                 let ty = self.transform_type(pty, defs);
                 translated.members.push((pname.clone(), ty));
@@ -224,20 +220,26 @@ impl TS {
         return translated;
     }
 
+    /// Create a shadow model where `Into` fields are renamed and converted to their source types.
+    fn translate_type(&self, ty: &Type, defs: &Definitons) -> Type {
+        match ty {
+            Type::Struct(s) => Type::Struct(self.translate_struct(s, defs)),
+            _ => ty.clone(),
+        }
+    }
+
     /// Emit internal helper types for request bodies that require pre-flight transforms.
-    fn generate_request_models(&self, defs: &Definitons) -> Code {
+    fn generate_request_types(&self, defs: &Definitons) -> Code {
         let mut code = Code::new_segment();
-        for (model_name, model) in &defs.types {
+        for (type_name, ty) in &defs.types {
+            if !ty.contains_into(defs) {
+                continue;
+            }
+
+            let translated = self.translate_type(ty, defs);
+            let name = format!("_{type_name}");
+
             todo!()
-            // let ty = Type::Struct(model_name.clone());
-            // if !ty.contains_into(defs) {
-            //     continue;
-            // }
-
-            // let translated = self.translate_model(model, defs);
-            // let name = format!("_{model_name}");
-
-            // code.add_child(self._handle_model(name.as_str(), &translated, defs, false));
         }
         return code;
     }
@@ -323,7 +325,7 @@ impl Generator for TS {
             code.add_line("import Result from '@/utils/result'".to_string());
         }
 
-        code.add_child(self.generate_request_models(defs));
+        code.add_child(self.generate_request_types(defs));
         code.add_child(self.generate_request_transitions(defs));
 
         return code;

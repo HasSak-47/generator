@@ -1,9 +1,6 @@
 use crate::{
     builder::Code,
-    parser::{
-        dsl::{Definitons, EndPoint, Generator},
-        types::{PrimitiveType, Repr, Type},
-    },
+    parser::{definitions::*, endpoint::*, types::*},
 };
 
 use clap::{Parser, ValueEnum};

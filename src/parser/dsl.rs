@@ -1,71 +1,8 @@
-use std::{collections::HashMap, fmt::Display, fs::File, io::Read, path::Path, str::FromStr};
-
-use crate::{builder::Code, parser::types::*};
+use crate::parser::{definitions::*, endpoint::*, types::*};
 use anyhow::Result;
 use pest::{Parser, iterators::Pair};
 use pest_derive::Parser;
-
-#[derive(Debug, Default)]
-pub enum EndPointMethod {
-    #[default]
-    GET,
-    POST,
-    PUT,
-}
-
-impl Display for EndPointMethod {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Self::GET => "get",
-                Self::POST => "post",
-                Self::PUT => "put",
-            }
-        )?;
-        return Ok(());
-    }
-}
-
-#[derive(Debug, Default)]
-pub struct EndPoint {
-    pub params: Vec<(String, Type)>,
-    pub method: EndPointMethod,
-    pub url: String,
-    pub return_type: Type,
-}
-
-#[derive(Debug, Default)]
-pub enum EndPointParamKind {
-    #[default]
-    Body,
-    Path,
-    Query,
-}
-
-impl EndPoint {
-    pub fn get_param_type<S: AsRef<str>>(&self, name: S) -> Option<EndPointParamKind> {
-        let name = name.as_ref();
-        let (name, ty) = self.params.iter().find(|p| p.0 == name)?;
-        match &ty {
-            Type::Union(_) | Type::Struct(_) => return Some(EndPointParamKind::Body),
-            _ => {
-                if self.url.contains(format!("{{{name}}}").as_str()) {
-                    return Some(EndPointParamKind::Path);
-                } else {
-                    return Some(EndPointParamKind::Query);
-                }
-            }
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct Definitons {
-    pub types: HashMap<String, Type>,
-    pub end_points: HashMap<String, EndPoint>,
-}
+use std::{fs::File, io::Read, path::Path, str::FromStr};
 
 #[derive(Debug, Parser)]
 #[grammar = "pest/lang.pest"]
@@ -202,147 +139,6 @@ fn handle_member_field<'a>(p: Pair<'a, Rule>) -> Result<(String, Type)> {
     }
     unreachable!("not a member definition!")
 }
-impl Definitons {
-    fn new() -> Self {
-        Self {
-            types: HashMap::new(),
-            end_points: HashMap::new(),
-        }
-    }
-
-    fn check_type(ty: &Type, names: &Vec<String>) -> bool {
-        match ty {
-            Type::Struct(struct_) => {
-                for (_, ty) in &struct_.members {
-                    let found = Definitons::check_type(ty, names);
-                    if !found {
-                        let ty_name = ty.to_string();
-                        panic!("could not expand type {ty_name}");
-                    }
-                }
-            }
-            Type::Union(union) => {
-                for ty in &union.tys {
-                    let found = Definitons::check_type(ty, names);
-                    if !found {
-                        let ty_name = ty.to_string();
-                        panic!("could not expand type {ty_name}");
-                    }
-                }
-            }
-            Type::Named(name) => return names.iter().find(|n| **n == *name).is_some(),
-            _ => {}
-        }
-
-        return true;
-    }
-
-    /// Will check if all names are known, will fail fast on unknown names.
-    fn check_if_defined(&mut self) {
-        let type_names: Vec<String> = self.types.keys().map(|k| k.clone()).collect();
-
-        for (_, ty) in &self.types {
-            let found = Definitons::check_type(ty, &type_names);
-            if !found {
-                let ty_name = ty.to_string();
-                panic!("could not expand type {ty_name}");
-            }
-        }
-
-        for (_, endpoint) in self.end_points.iter_mut() {
-            for (_, ty) in endpoint.params.iter_mut() {
-                let param_name = ty.to_string();
-                let found = Definitons::check_type(ty, &type_names);
-                if !found {
-                    panic!("could not expand type {param_name}: {self:?}");
-                }
-            }
-            let found = Definitons::check_type(&endpoint.return_type, &type_names);
-            if !found {
-                panic!("could not expand type: {self:?}");
-            }
-        }
-    }
-
-    /// Load the DSL file, parse it with pest, and translate the AST into `Definitons`.
-    pub fn get_definitions<P: AsRef<Path>>(p: P) -> Result<Self> {
-        let mut file = File::open(p)?;
-        let mut buf = String::new();
-        file.read_to_string(&mut buf)?;
-        let p = LangParser::parse(Rule::definitions, buf.as_str())?
-            .next()
-            .unwrap();
-
-        if let Rule::definitions = p.as_rule() {
-        } else {
-            unreachable!("not a definition file!")
-        }
-
-        let mut defs = Definitons::new();
-
-        for inner in p.into_inner() {
-            match inner.as_rule() {
-                Rule::struct_definition => {
-                    let mut iter = inner.into_inner();
-                    let name = iter.next().unwrap();
-                    assert!(name.as_rule() == Rule::name);
-                    // TODO: handle extensions
-                    let struct_ = handle_struct(iter.next().unwrap())?;
-                    defs.types.insert(name.as_str().to_string(), struct_);
-                }
-                Rule::end_point => {
-                    let mut iter = inner.into_inner().peekable();
-                    let mut end_point = EndPoint::default();
-                    let name = iter.next().unwrap().as_str().to_string();
-
-                    while iter.peek().unwrap().as_rule() == Rule::member_field {
-                        end_point
-                            .params
-                            .push(handle_member_field(iter.next().unwrap())?);
-                    }
-
-                    match iter.next().unwrap().into_inner().next().unwrap().as_str() {
-                        "post" => end_point.method = EndPointMethod::POST,
-                        "put" => end_point.method = EndPointMethod::PUT,
-                        "get" => end_point.method = EndPointMethod::GET,
-                        x => unreachable!("{x} is not a supported method"),
-                    }
-
-                    end_point.url = iter
-                        .next()
-                        .unwrap()
-                        .into_inner()
-                        .next()
-                        .unwrap()
-                        .as_str()
-                        .to_string();
-                    if let Some(o) = iter.next() {
-                        end_point.return_type = handle_type(o)?;
-                    }
-                    defs.end_points.insert(name, end_point);
-                }
-                Rule::COMMENT | Rule::EOI => {}
-                _ => unreachable!("how did you got here??"),
-            }
-        }
-
-        defs.check_if_defined();
-
-        return Ok(defs);
-    }
-}
-
-pub trait Generator {
-    fn generate_endpoint_header(&self, _defs: &Definitons) -> Code {
-        return Code::new_segment();
-    }
-    fn generate_model_header(&self, _defs: &Definitons) -> Code {
-        return Code::new_segment();
-    }
-
-    fn handle_type(&self, name: &str, model: &Type, defs: &Definitons) -> Code;
-    fn handle_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> Code;
-}
 
 #[cfg(test)]
 mod test {
@@ -434,4 +230,69 @@ mod test {
 
         return Ok(());
     }
+}
+
+/// Load the DSL file, parse it with pest, and translate the AST into `Definitons`.
+pub fn get_definitions<P: AsRef<Path>>(p: P) -> Result<Definitons> {
+    let mut file = File::open(p)?;
+    let mut buf = String::new();
+    file.read_to_string(&mut buf)?;
+    let p = LangParser::parse(Rule::definitions, buf.as_str())?
+        .next()
+        .unwrap();
+
+    if let Rule::definitions = p.as_rule() {
+    } else {
+        unreachable!("not a definition file!")
+    }
+
+    let mut defs = Definitons::new();
+
+    for inner in p.into_inner() {
+        match inner.as_rule() {
+            Rule::struct_definition => {
+                let mut iter = inner.into_inner();
+                let name = iter.next().unwrap();
+                assert!(name.as_rule() == Rule::name);
+                // TODO: handle extensions
+                let struct_ = handle_struct(iter.next().unwrap())?;
+                defs.types.insert(name.as_str().to_string(), struct_);
+            }
+            Rule::end_point => {
+                let mut iter = inner.into_inner().peekable();
+                let mut end_point = EndPoint::default();
+                let name = iter.next().unwrap().as_str().to_string();
+
+                while iter.peek().unwrap().as_rule() == Rule::member_field {
+                    end_point
+                        .params
+                        .push(handle_member_field(iter.next().unwrap())?);
+                }
+
+                match iter.next().unwrap().into_inner().next().unwrap().as_str() {
+                    "post" => end_point.method = EndPointMethod::POST,
+                    "put" => end_point.method = EndPointMethod::PUT,
+                    "get" => end_point.method = EndPointMethod::GET,
+                    x => unreachable!("{x} is not a supported method"),
+                }
+
+                end_point.url = iter
+                    .next()
+                    .unwrap()
+                    .into_inner()
+                    .next()
+                    .unwrap()
+                    .as_str()
+                    .to_string();
+                if let Some(o) = iter.next() {
+                    end_point.return_type = handle_type(o)?;
+                }
+                defs.end_points.insert(name, end_point);
+            }
+            Rule::COMMENT | Rule::EOI => {}
+            _ => unreachable!("how did you got here??"),
+        }
+    }
+
+    return Ok(defs);
 }
