@@ -9,11 +9,11 @@ use std::path::{Path, PathBuf};
 struct SplitType {
     wire: Type,
     domain: Type,
-    wire_name: String,
+    wire_name: Option<String>,
 }
 
 pub struct TypeInformationBuilder {
-    name: String,
+    name: Option<String>,
     ty: Type,
     path: Option<PathBuf>,
     line: Option<usize>,
@@ -21,9 +21,18 @@ pub struct TypeInformationBuilder {
 }
 
 impl TypeInformationBuilder {
-    pub fn new_type(name: String, ty: Type) -> Self {
+    pub fn new(ty: Type) -> Self {
         return Self {
-            name,
+            name: None,
+            ty,
+            path: None,
+            line: None,
+            col: None,
+        };
+    }
+    pub fn new_named(name: String, ty: Type) -> Self {
+        return Self {
+            name: Some(name),
             ty,
             path: None,
             line: None,
@@ -53,13 +62,17 @@ impl TypeInformationBuilder {
     pub fn set_line(&mut self, line: usize) {
         self.line = Some(line);
     }
+
+    pub fn set_name(&mut self, name: String) {
+        self.name = Some(name);
+    }
 }
 
 /// Metadata for a single named type in the DSL.
 #[derive(Debug)]
 pub struct TypeInformation {
     /// Name of the type
-    pub name: String,
+    pub name: Option<String>,
     pub ty: Type,
     pub path: PathBuf,
     pub line: usize,
@@ -89,7 +102,7 @@ impl TypeInformation {
         }
     }
 
-    pub fn get_wire_name(&self) -> &String {
+    pub fn get_wire_name(&self) -> &Option<String> {
         if let Some(con) = &self.conversion {
             &con.wire_name
         } else {
@@ -101,20 +114,20 @@ impl TypeInformation {
 /// Aggregates all parsed type and endpoint declarations.
 #[derive(Debug)]
 pub struct Definitons {
-    pub types: HashMap<String, TypeInformation>,
+    pub named_types: HashMap<String, TypeInformation>,
     pub end_points: HashMap<String, EndPoint>,
 }
 
 impl Definitons {
     pub fn new() -> Self {
         Self {
-            types: HashMap::new(),
+            named_types: HashMap::new(),
             end_points: HashMap::new(),
         }
     }
 
     pub fn populate_union_tags(&mut self) {
-        for ty in &mut self.types {
+        for ty in &mut self.named_types {
             if let Type::Union(u) = &mut ty.1.ty {
                 if u.kind == UnionKind::Untagged {
                     continue;
@@ -137,7 +150,7 @@ impl Definitons {
                     panic!("untagged union that contains structs is not valid yet!")
                 }
                 Type::Named(name) => {
-                    if let Type::Struct(_) = self.types.get(name).unwrap().ty {
+                    if let Type::Struct(_) = self.named_types.get(name).unwrap().ty {
                         panic!("untagged union that contains named structs is not valid yet!")
                     }
                 }
@@ -178,9 +191,9 @@ impl Definitons {
 
     /// Walk every type/endpoint and ensure that all referenced names exist.
     fn validate_type_references(&mut self) {
-        let type_names: Vec<String> = self.types.keys().map(|k| k.clone()).collect();
+        let type_names: Vec<String> = self.named_types.keys().map(|k| k.clone()).collect();
 
-        for (_, ty) in &mut self.types {
+        for (_, ty) in &mut self.named_types {
             Definitons::resolve_type_references(&mut ty.ty, &type_names);
         }
 
@@ -272,7 +285,7 @@ impl Definitons {
                 Type::Union(s)
             }
             Type::Named(name) => {
-                if self.types[name].ty.contains_into(self) {
+                if self.named_types[name].ty.contains_into(self) {
                     Type::Named(format!("_{name}"))
                 } else {
                     Type::Named(name.clone())
@@ -287,8 +300,8 @@ impl Definitons {
 
     /// Insert a parsed `type` declaration into the definitions map.
     pub fn register_type(&mut self, builder: TypeInformationBuilder) {
-        self.types
-            .insert(builder.name.clone(), builder.build_type());
+        self.named_types
+            .insert(builder.name.as_ref().unwrap().clone(), builder.build_type());
     }
 
     pub fn build_definitons(&mut self) {
@@ -296,7 +309,7 @@ impl Definitons {
 
         // I hate the borrow checker sometimes
         let mut new_types = HashMap::new();
-        for (name, ty) in &self.types {
+        for (name, ty) in &self.named_types {
             if let Type::Union(u) = &ty.ty {
                 if u.kind == UnionKind::Untagged {
                     self.validate_untagged_union(u);
@@ -307,7 +320,7 @@ impl Definitons {
                 continue;
             }
 
-            let wire_name = format!("_{name}");
+            let wire_name = Some(format!("_{name}"));
             let wire = self.convert_to_wire_type(&ty.ty);
             let domain = self.convert_to_domain_type(&ty.ty);
 
@@ -322,7 +335,7 @@ impl Definitons {
         }
 
         for (name, s) in new_types {
-            let t = self.types.get_mut(&name).unwrap();
+            let t = self.named_types.get_mut(&name).unwrap();
             t.conversion = Some(s);
         }
     }
@@ -337,7 +350,7 @@ impl Definitons {
     /// Emit code for every domain type using the provided generator implementation.
     pub fn render_domain_type_definitions<G: Generator + ?Sized>(&self, generator: &G) -> Code {
         let mut code = Code::new_segment();
-        for (name, ty) in &self.types {
+        for (name, ty) in &self.named_types {
             let ty = ty.get_domain_type();
             code.add_child(generator.generate_type(name, ty, true, self));
         }
@@ -347,9 +360,15 @@ impl Definitons {
     /// Emit the wire-model definitions for types that require conversion.
     pub fn render_wire_type_definitions<G: Generator + ?Sized>(&self, generator: &G) -> Code {
         let mut code = Code::new_segment();
-        for (_, ty) in &self.types {
-            if let Some(c) = &ty.conversion {
-                code.add_child(generator.generate_type(c.wire_name.as_str(), &c.wire, false, self));
+        for (_, ty) in &self.named_types {
+            if ty.has_conversion() {
+                let ty = generator.generate_type(
+                    ty.get_wire_name().as_ref().unwrap().as_str(),
+                    ty.get_wire_type(),
+                    false,
+                    self,
+                );
+                code.add_child(ty);
             }
         }
 
@@ -359,7 +378,7 @@ impl Definitons {
     /// Emit the helper functions that translate between domain and wire representations.
     pub fn render_conversion_helpers<G: Generator + ?Sized>(&self, generator: &G) -> Code {
         let mut code = Code::new_segment();
-        for (_, ty) in &self.types {
+        for (_, ty) in &self.named_types {
             if ty.conversion.is_none() {
                 continue;
             }
@@ -418,7 +437,7 @@ impl Definitons {
     pub fn get_named_type<S: AsRef<str>>(&self, name: S) -> Option<&TypeInformation> {
         let name = name.as_ref();
         return self
-            .types
+            .named_types
             .iter()
             .find(|n| name == *n.0)
             .and_then(|t| Some(t.1));

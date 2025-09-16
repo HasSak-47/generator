@@ -195,7 +195,7 @@ pub fn add_definitions<P: AsRef<Path>>(defs: &mut Definitons, path: P) -> Result
                 let ty = iter.next().unwrap();
                 assert_eq!(name.as_rule(), Rule::name);
                 assert_eq!(ty.as_rule(), Rule::ty);
-                let mut builder = TypeInformationBuilder::new_type(
+                let mut builder = TypeInformationBuilder::new_named(
                     name.as_str().to_string(),
                     handle_type(ty).unwrap(),
                 );
@@ -213,7 +213,7 @@ pub fn add_definitions<P: AsRef<Path>>(defs: &mut Definitons, path: P) -> Result
                 // TODO: handle extensions
                 let struct_ = handle_struct(iter.next().unwrap())?;
                 let mut builder =
-                    TypeInformationBuilder::new_type(name.as_str().to_string(), struct_);
+                    TypeInformationBuilder::new_named(name.as_str().to_string(), struct_);
                 builder.set_path(&path);
                 let (line, col) = name.line_col();
                 builder.set_col(col);

@@ -335,7 +335,7 @@ impl Generator for TS {
     }
 
     fn generate_type_translation(&self, ty: &TypeInformation, defs: &Definitons) -> Code {
-        let name = &ty.name;
+        let name = &ty.name.as_ref().unwrap();
         let mut code = Code::new_segment();
 
         let domain_code = code.create_child_segment();
@@ -361,13 +361,13 @@ impl Generator for TS {
         wire_code.add_line(format!("function into_wire_{name}(m: {name}){{"));
         match &ty.ty {
             Type::Struct(s) => wire_code.add_child(self.generate_struct_translation(
-                ty.get_wire_name(),
+                ty.get_wire_name().as_ref().unwrap(),
                 &s,
                 defs,
                 |name, ty, defs| self.build_into_wire_expression(name, ty, defs),
             )),
             Type::Union(u) => wire_code.add_child(self.generate_union_translation(
-                name,
+                ty.get_wire_name().as_ref().unwrap(),
                 &u,
                 defs,
                 |name, ty, defs| self.build_into_wire_expression(name, ty, defs),

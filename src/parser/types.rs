@@ -227,7 +227,7 @@ impl Type {
                 }
                 false
             }
-            Self::Named(name) => defs.types[name].ty.contains_into(defs),
+            Self::Named(name) => defs.named_types[name].ty.contains_into(defs),
             _ => false,
         }
     }

@@ -25,8 +25,12 @@ struct Cli {
     pub split: bool,
 
     /// Prefix added to every generated filename (helps when mixing variants in the same folder).
-    #[arg(short = 'P', long)]
+    #[arg(long)]
     pub prefix: Option<String>,
+
+    /// Postfix added to every generated filename (helps when mixing variants in the same folder).
+    #[arg(long)]
+    pub postfix: Option<String>,
 
     /// Destination directory for generated files.
     #[arg(short, long, default_value_os_t = {PathBuf::from("./src/generated")})]
