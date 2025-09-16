@@ -325,7 +325,7 @@ impl TS {
 }
 
 impl Generator for TS {
-    fn generate_endpoint_header(&self, defs: &Definitons) -> Code {
+    fn generate_endpoint_header(&self, _: &Definitons) -> Code {
         let mut code = Code::new_segment();
         if let ErrorHandling::Result = self.error_handling {
             code.add_line("import Result from '@/utils/result'".to_string());
