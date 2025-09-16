@@ -110,7 +110,7 @@ fn handle_type<'a>(p: Pair<'a, Rule>) -> Result<Type> {
                 }
                 Rule::ty => UnionKind::Untagged,
                 Rule::union_member => UnionKind::External,
-                e => unreachable!("reached rule {e:?}"),
+                e => unreachable!("inside union type reached rule {e:?} {:?}", kind.line_col()),
             };
             for ty in inner {
                 match ty.as_rule() {
