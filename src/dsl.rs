@@ -299,10 +299,10 @@ impl Definitons {
 
 pub trait Generator {
     fn generate_endpoint_header(&self, _defs: &Definitons) -> Code {
-        return Code::new();
+        return Code::new_segment();
     }
     fn generate_model_header(&self, _defs: &Definitons) -> Code {
-        return Code::new();
+        return Code::new_segment();
     }
 
     fn handle_model(&self, name: &str, model: &Model, defs: &Definitons) -> Code;

@@ -1,5 +1,4 @@
 mod builder;
-mod code_builder;
 mod dsl;
 mod python;
 mod ts;
@@ -57,7 +56,7 @@ fn main() -> Result<()> {
             let model = &defs.enums[name];
             let g = generator.handle_enum(name, model);
             if g.has_code() {
-                code.flat_add_code(g);
+                code.add_child(g);
             }
         }
     };
@@ -69,8 +68,8 @@ fn main() -> Result<()> {
             let model = &defs.models[name];
             let g = generator.handle_model(name, model, &defs);
             if g.has_code() {
-                code.add_child(String::new());
-                code.flat_add_code(g);
+                code.add_line(String::new());
+                code.add_child(g);
             }
         }
     };
@@ -82,8 +81,8 @@ fn main() -> Result<()> {
             let endpoint = &defs.end_points[name];
             let g = generator.handle_endpoint(name, endpoint, &defs);
             if g.has_code() {
-                code.add_child(String::new());
-                code.flat_add_code(g);
+                code.add_line(String::new());
+                code.add_child(g);
             }
         }
     };
@@ -113,10 +112,10 @@ fn main() -> Result<()> {
         let mut endpoint_file = File::create(endpoint_path)?;
         endpoint_file.write_all(endpoint_code.as_bytes())?;
     } else {
-        let mut code = Code::new();
+        let mut code = Code::new_segment();
 
-        code.flat_add_code(generator.generate_model_header(&defs));
-        code.flat_add_code(generator.generate_endpoint_header(&defs));
+        code.add_child(generator.generate_model_header(&defs));
+        code.add_child(generator.generate_endpoint_header(&defs));
 
         add_enums(&mut code);
         add_models(&mut code);

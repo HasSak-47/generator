@@ -74,10 +74,11 @@ impl FastApi {
 
 impl Generator for FastApi {
     fn handle_model(&self, name: &str, model: &Model, defs: &Definitons) -> Code {
-        let mut code = Code::new();
-        let class_def = code.add_child(format!("class {}(BaseModel):", name));
+        let mut code = Code::new_segment();
+        code.add_line(format!("class {}(BaseModel):", name));
+        let class_body = code.create_child_block();
         for (name, ty) in &model.params {
-            class_def.add_child(format!("{name}: {}", self.handle_type(defs, &ty)));
+            class_body.add_line(format!("{name}: {}", self.handle_type(defs, &ty)));
         }
 
         return code;
@@ -86,28 +87,32 @@ impl Generator for FastApi {
     #[allow(unused_variables)]
     fn handle_enum(&self, name: &str, model: &crate::dsl::Enum) -> Code {
         if let EnumHandling::ToString = self.enum_handling {
-            return Code::new();
+            return Code::new_segment();
         }
         todo!();
     }
 
     fn handle_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> Code {
-        let mut code = Code::new();
-        code.add_child(format!(
+        let mut code = Code::new_segment();
+        code.add_line(format!(
             "@{}.{}('{}')",
             self.app_name, endpoint.method, endpoint.url
         ));
-        let function = code.add_child(format!("def endpoint_{}(", name,));
+        let mut func_stmt = format!("def endpoint_{}(", name,);
         for (name, ty) in &endpoint.params {
-            function.code += format!("{name}: {}, ", self.handle_type(defs, &ty)).as_str();
+            func_stmt += format!("{name}: {}, ", self.handle_type(defs, &ty)).as_str();
         }
-        function.code += "):";
+        func_stmt += "):";
+        code.add_line(func_stmt);
 
-        let call = function.add_child(format!("{}(", name,));
+        let func_body = code.create_child_block();
+
+        let mut call = format!("{}(", name,);
         for (name, _) in &endpoint.params {
-            call.code += format!("{name}, ").as_str();
+            call += format!("{name}, ").as_str();
         }
-        call.code += ")";
+        call += ")";
+        func_body.add_line(call);
 
         return code;
     }

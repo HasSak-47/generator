@@ -114,16 +114,19 @@ impl TS {
     }
 
     fn get_query_code<S: AsRef<str>>(&self, name: S, ty: &Type) -> Code {
+        let mut code = Code::new_segment();
         let name = name.as_ref();
+
         match ty {
             Type::Optional(_) => {
-                let mut c = Code::new_child(format!("if({name} !== null)"));
-                c.add_child(format!("searchParams.set('{name}', {name});"));
-
-                return c;
+                code.add_line(format!("if({name} !== null)"));
+                let if_body = code.create_child_block();
+                if_body.add_line(format!("searchParams.set('{name}', {name});"));
             }
-            _ => Code::new_child(format!("searchParams.set('{name}', {name});")),
+            _ => code.add_line(format!("searchParams.set('{name}', {name});")),
         }
+
+        return code;
     }
 
     /// Build the expression that converts an "input" value into its wire representation.
@@ -210,7 +213,7 @@ impl TS {
 
     /// Emit internal helper types for request bodies that require pre-flight transforms.
     fn generate_request_models(&self, defs: &Definitons) -> Code {
-        let mut code = Code::new();
+        let mut code = Code::new_segment();
         for (model_name, model) in &defs.models {
             let ty = Type::Model(model_name.clone());
             if !ty.contains_into(defs) {
@@ -220,36 +223,38 @@ impl TS {
             let translated = self.translate_model(model, defs);
             let name = format!("_{model_name}");
 
-            code.flat_add_code(self._handle_model(name.as_str(), &translated, defs, false));
+            code.add_child(self._handle_model(name.as_str(), &translated, defs, false));
         }
         return code;
     }
 
     /// Emit the conversion helpers that map public models into the helper request models.
     fn generate_request_transitions(&self, defs: &Definitons) -> Code {
-        let mut code = Code::new();
+        let mut code = Code::new_segment();
 
         for (model_name, model) in &defs.models {
+            let mut segment = code.create_child_segment();
             let ty = Type::Model(model_name.clone());
             if !ty.contains_into(defs) {
                 continue;
             }
 
-            let function = code.add_child(format!(
+            code.add_line(format!(
                 "function transform_{model_name}(_m: {model_name}){{"
             ));
-            function.end_code = "}".to_string();
 
-            let return_map = function.add_child("return {".to_string());
+            let func_body = code.create_child_block();
+            func_body.add_line("return {".to_string());
+            let obj_body = func_body.create_child_block();
 
             for (name, ty) in &model.params {
-                return_map.add_child(format!(
+                obj_body.add_line(format!(
                     "{name} : {},",
-                    self.get_convertion_string(format!("_m.{name}"), ty, defs)
+                    self.get_convertion_string(format!("m.{name}"), ty, defs)
                 ));
             }
-
-            return_map.end_code = format!("}} as _{model_name};");
+            let _ = obj_body;
+            func_body.add_line(format!("}} as _{model_name};"));
         }
 
         return code;
@@ -258,8 +263,9 @@ impl TS {
     /// Guard against missing fields on loosely typed JSON responses.
     fn validate_param(&self, name: &String, _expected_type: &Type, return_type: &String) -> Code {
         // TODO: add type guards
-        let mut code = Code::new_child(format!("if(j.{name} === undefined)"));
-        code.add_child(self.handle_error(
+        let mut code = Code::new_segment();
+        code.add_line(format!("if(j.{name} === undefined)"));
+        code.add_line(self.handle_error(
             &format!("new Error('field {name} is undefined')"),
             &return_type,
         ));
@@ -268,19 +274,20 @@ impl TS {
     }
 
     fn _handle_model(&self, name: &str, model: &Model, defs: &Definitons, export: bool) -> Code {
-        let mut code = Code::new();
-        let type_decl = code.add_child(format!(
+        let mut code = Code::new_segment();
+        code.add_line(format!(
             "{}type {} = {{",
             if export { "export " } else { "" },
             name
         ));
+        let type_body = code.create_child_block();
         for (name, ty) in &model.params {
-            type_decl.add_child(format!(
+            type_body.add_line(format!(
                 "{name}: {};",
                 self.handle_singature_for_model(defs, &ty)
             ));
         }
-        type_decl.end_code = "};".to_string();
+        code.add_line("};".to_string());
 
         return code;
     }
@@ -288,13 +295,13 @@ impl TS {
 
 impl Generator for TS {
     fn generate_endpoint_header(&self, defs: &Definitons) -> Code {
-        let mut code = Code::new();
+        let mut code = Code::new_segment();
         if let ErrorHandling::Result = self.error_handling {
-            code.add_child("import Result from '@/utils/result'".to_string());
+            code.add_line("import Result from '@/utils/result'".to_string());
         }
 
-        code.flat_add_code(self.generate_request_models(defs));
-        code.flat_add_code(self.generate_request_transitions(defs));
+        code.add_child(self.generate_request_models(defs));
+        code.add_child(self.generate_request_transitions(defs));
 
         return code;
     }
@@ -306,22 +313,22 @@ impl Generator for TS {
     fn handle_enum(&self, name: &str, e: &crate::dsl::Enum) -> Code {
         match self.type_enum {
             EnumHandling::ToEnum => {
-                return Code::new();
+                return Code::new_segment();
             }
             EnumHandling::ToType => {
-                return Code::new_child(format!(
+                return Code::new_line(format!(
                     "export type {name} = {}",
                     self.generate_enum_algebra(e)
                 ));
             }
             EnumHandling::ToString | EnumHandling::ToAlgebraic => {
-                return Code::new();
+                return Code::new_segment();
             }
         }
     }
 
     fn handle_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> Code {
-        let mut code = Code::new();
+        let mut code = Code::new_segment();
         let mut function_decl = format!("export async function {}(", name);
         for (name, ty) in &endpoint.params {
             if ty.contains_into(defs) {
@@ -333,41 +340,44 @@ impl Generator for TS {
             }
         }
         function_decl += "){";
-        let function = code.add_child(function_decl);
-        function.end_code = "}".to_string();
+        code.add_line(function_decl);
+        let func_body = code.create_child_block();
 
         for (name, ty) in &endpoint.params {
             if !ty.contains_into(defs) {
                 continue;
             }
 
-            function.add_child(format!(
+            func_body.add_line(format!(
                 "const {name} = {};",
                 self.get_convertion_string(name, ty, defs)
             ));
         }
 
         let mut has_query = false;
-        let mut query = Code::new_child("const searchParams = new URLSearchParams();".to_string());
+        let mut query = Code::new_segment();
+        query.add_line("const searchParams = new URLSearchParams();".to_string());
 
         for (name, ty) in &endpoint.params {
             if let EndPointParamKind::Query = endpoint.get_param_type(&name).unwrap() {
-                query.add_code(self.get_query_code(name, &ty));
+                query.add_child(self.get_query_code(name, &ty));
                 has_query = true;
             }
         }
 
-        function.add_child(format!("let url = `{}`;", endpoint.url.replace("{", "${")));
+        func_body.add_line(format!("let url = `{}`;", endpoint.url.replace("{", "${")));
 
         if has_query {
-            function.flat_add_code(query);
-            function.add_child(
+            func_body.add_child(query);
+            func_body.add_line(
                 "url = searchParams.size > 0 ? `${url}?${searchParams}` : url;".to_string(),
             );
         }
-        let mut fetch_code = Code::new_child("let response = await fetch(url, {".to_string());
-        fetch_code.end_code = "});".to_string();
-        fetch_code.add_child(format!("method: '{}',", endpoint.method));
+
+        let mut fetch_code = Code::new_segment();
+        fetch_code.add_line("let response = await fetch(url, {".to_string());
+        let fetch_body = fetch_code.create_child_block();
+        fetch_body.add_line(format!("method: '{}',", endpoint.method));
 
         let mut has_body = false;
 
@@ -380,59 +390,67 @@ impl Generator for TS {
 
         // request body
         if has_body {
-            let body_code = fetch_code.add_child("body: JSON.stringify({".to_string());
-            body_code.end_code = "}),".to_string();
+            fetch_body.add_line("body: JSON.stringify({".to_string());
+            let body_code = fetch_body.create_child_block();
+
             for (name, _) in &endpoint.params {
                 if let EndPointParamKind::Body = endpoint.get_param_type(&name).unwrap() {
-                    body_code.add_child(format!("{name}: {name}"));
+                    body_code.add_line(format!("{name}: {name}"));
                 }
             }
 
-            let header_code = fetch_code.add_child("headers: {".to_string());
-            header_code.end_code = "}".to_string();
-            header_code.add_child("'Content-Type': 'application/json'".to_string());
+            fetch_code.add_line("headers: {".to_string());
+            let header_code = fetch_code.create_child_block();
+            header_code.add_line("'Content-Type': 'application/json'".to_string());
+            fetch_code.add_line("}".to_string());
         }
-        function.add_code(fetch_code);
+        fetch_code.add_line("});".to_string());
+        func_body.add_child(fetch_code);
 
         let return_type = self.handle_singature_for_model(defs, &endpoint.return_type);
 
         // request error
         let error = "new Error(response.statusText)".to_string();
 
-        let if_ = function.add_child("if(!response.ok)".to_string());
-        if_.add_child(self.handle_error(&error, &return_type));
+        let if_segment = func_body.create_child_segment();
+        if_segment.add_line("if(!response.ok)".to_string());
+        let if_body = if_segment.create_child_block();
+        if_body.add_line(self.handle_error(&error, &return_type));
 
         if let Type::Null = endpoint.return_type {
-            function.add_child(self.handle_ok(&"null".to_string(), &return_type));
+            func_body.add_line(self.handle_ok(&"null".to_string(), &return_type));
             return code;
         }
 
-        function.add_child("let j = await response.json();".to_string());
+        func_body.add_line("let j = await response.json();".to_string());
+        let response_segment = func_body.create_child_segment();
 
         match &endpoint.return_type {
             Type::Model(m) => {
                 for (name, ty) in &defs.models[m].params {
-                    function.add_code(self.validate_param(name, ty, &return_type));
+                    response_segment.add_child(self.validate_param(name, ty, &return_type));
                 }
-                function.add_child(format!("return j as {return_type}"));
+                func_body.add_line(format!("return j as {return_type}"));
             }
             Type::Primitive(p) => {
                 let expected_type = self.handle_primitive(p);
-                let if_ =
-                    function.add_child(format!("if(typeof j != '{}')", self.handle_primitive(p)));
-                if_.add_child(self.handle_error(
+                response_segment
+                    .add_line(format!("if(typeof j != '{}')", self.handle_primitive(p)));
+                let if_body = response_segment.create_child_block();
+                if_body.add_line(self.handle_error(
                     &format!("new Error('response was not a {expected_type}')"),
                     &return_type,
                 ));
-                function.add_child("return j;".to_string());
+                func_body.add_line("return j;".to_string());
             }
             // TODO: add
             Type::Array(_) => {
-                function.add_child(format!("return j as {};", return_type));
+                func_body.add_line(format!("return j as {};", return_type));
             }
             _ => todo!(),
         }
 
+        code.add_line("}".to_string());
         return code;
     }
 }
