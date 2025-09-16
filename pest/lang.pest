@@ -1,16 +1,14 @@
 definitions = {
-    SOI ~ (model | enums | end_point)+ ~ EOI
+    SOI ~ (model_definion | ty_definition | end_point)+ ~ EOI
 }
 
-model = {
-    "model" ~ name ~ model_extension? ~ "{" ~ member_field ~ ("," ~ member_field)* ~ ","? ~ "}"
+ty_definition = { "type" ~ name ~ "=" ~ ty }
+
+model_definion = {
+    "type" ~ name ~ model_extension? ~ "=" ~ model_type
 }
 
 model_extension = @{ ":" ~ name }
-
-enums = {
-    "enum" ~ name ~ "{" ~ value ~ ("," ~ value)* ~ ","? ~ "}"
-}
 
 end_point = {
     name ~ "(" ~ (member_field ~ ("," ~ member_field)* ~ ","?)? ~ ")" ~ operation_mark ~ path ~ ("->" ~ ty)?
@@ -21,12 +19,17 @@ operation      =  { "get" | "post" | "put" }
 
 path = ${ "\"" ~ inner ~ "\"" }
 
+ty = ${ (sum_type | map_type | value_type | into_type | repr_type | primitive_type | null_type | named_type) ~ weird_mark* }
+
+model_type = {
+    "{" ~ member_field ~ ("," ~ member_field)* ~ ","? ~ "}"
+}
+
 member_field = ${ name ~ " "* ~ ":" ~ " "* ~ ty }
-ty           = ${ (sum_type | map_type | value_type | into_type | repr_type | primitive_type | null_type | complex_type) ~ weird_mark* }
 into_type    = ${ primitive_type ~ " "* ~ "as" ~ " "* ~ repr_type }
 
-map_type     = ${ "<" ~ " "* ~ primitive_type ~ " "* ~ "," ~ " "* ~ ty ~ " "* ~ ">" }
-complex_type = ${ name }
+map_type   = ${ "<" ~ " "* ~ primitive_type ~ " "* ~ "," ~ " "* ~ ty ~ " "* ~ ">" }
+named_type = ${ name }
 
 value_type  = ${ value }
 sum_type    =  { "(" ~ ty ~ " "* ~ "|" ~ " "* ~ ty ~ ")" }
@@ -37,7 +40,8 @@ array_mark  =  { "[" ~ prec? ~ "]" }
 repr_type = ${ repr_root ~ ("_" ~ prec)? }
 repr_root = ${ datetime }
 
-datetime = { "datetime" ~ ("@" ~ name)? }
+datetime = ${ "datetime" ~ ("(" ~ datetime_fmt ~ ")")? }
+datetime_fmt = {"iso" | name }
 
 primitive_type = ${ praw | pprec ~ ("_" ~ prec)? }
 praw           =  { "bool" }
@@ -49,7 +53,7 @@ value  = ${ string | uint | int | float | bool }
 bool   = @{ "true" | "false" }
 float  = @{ sign? ~ (ASCII_DIGIT)+ ~ ("." ~ ASCII_DIGIT*)? }
 int    = @{ sign? ~ (ASCII_DIGIT)+ }
-uint    = @{ (ASCII_DIGIT)+ }
+uint   = @{ (ASCII_DIGIT)+ }
 sign   = @{ "-" | "+" }
 name   = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")+ }
 prec   = @{ ASCII_DIGIT+ }

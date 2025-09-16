@@ -75,7 +75,7 @@ impl EndPoint {
 #[derive(Debug)]
 pub struct Definitons {
     pub models: HashMap<String, Model>,
-    pub enums: HashMap<String, Enum>,
+    pub types: HashMap<String, Type>,
     pub end_points: HashMap<String, EndPoint>,
 }
 
@@ -118,7 +118,7 @@ fn handle_type<'a>(p: Pair<'a, Rule>) -> Result<Type> {
     let mut ty = match next.as_rule() {
         Rule::primitive_type => handle_primitive_type(next),
         Rule::null_type => Type::Null,
-        Rule::complex_type => Type::Undetermined(next.as_str().to_string()),
+        Rule::named_type => Type::Undetermined(next.as_str().to_string()),
         Rule::repr_type => Type::Repr(Repr::Datetime),
 
         Rule::into_type => {
@@ -196,7 +196,7 @@ impl Definitons {
     fn new() -> Self {
         Self {
             models: HashMap::new(),
-            enums: HashMap::new(),
+            types: HashMap::new(),
             end_points: HashMap::new(),
         }
     }
@@ -204,7 +204,7 @@ impl Definitons {
     /// Resolve undetermined references into concrete enums/models and fail fast on unknown names.
     fn expand_types(&mut self) {
         let model_names: Vec<String> = self.models.keys().map(|k| k.clone()).collect();
-        let enum_names: Vec<String> = self.enums.keys().map(|k| k.clone()).collect();
+        let type_names: Vec<String> = self.types.keys().map(|k| k.clone()).collect();
         for (_, model) in self.models.iter_mut() {
             for (_, param) in model.params.iter_mut() {
                 let param_name = param.to_string();
@@ -338,7 +338,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn type_test() -> anyhow::Result<()> {
+    fn primitive_type_test() -> anyhow::Result<()> {
         const PREC_PRIMITIVES: &[&str] = &["int", "uint", "float", "string"];
         const PRIMITIVES: &[&str] = &["bool"];
 

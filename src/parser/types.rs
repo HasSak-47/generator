@@ -85,21 +85,17 @@ impl SumType {
 
 #[derive(PartialEq, Clone)]
 pub enum Type {
-    Sum(SumType),
-    Literal(LiteralType),
+    Literal(LiteralType),     // "ok", "err", etc etc
     Primitive(PrimitiveType), // PT
     Repr(Repr),               // RT
     Optional(OptionType),     // T?
     Null,                     // null
     Array(ArrayType),         // T[x] singled typed arrays
-    /*
-    List(Vec<Type>),          // [T1, T2, ..., Tn] mixed typed arrays
-    Union(Vec<Type>),         // T1 | T2 | ...| Tn Union (only used for Into)
-                              */
-    Into(IntoType),       // T as Repr
-    Model(String),        // Name
-    Enum(String),         // Name
-    Undetermined(String), // Name
+    Sum(SumType),             // T1 | T2 | ...| Tn
+    Into(IntoType),           // T as Repr
+    Model(String),            // Name
+    Enum(String),             // Name
+    Undetermined(String),     // Name
 }
 
 impl Default for Type {
