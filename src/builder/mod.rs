@@ -62,6 +62,7 @@ impl Code {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_childs(&mut self) -> &mut Vec<Code> {
         match self {
             Self::Segment { childs } => childs,

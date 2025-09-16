@@ -1,7 +1,7 @@
 use super::{endpoint::*, types::*};
 use crate::builder::Code;
 use anyhow::Result;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::Path;
 
 /// Helper describing the wire/domain pair for a type that requires conversions.
@@ -22,6 +22,7 @@ pub struct TypeInformation {
 }
 
 impl TypeInformation {
+    #[allow(dead_code)]
     pub fn has_conversion(&self) -> bool {
         return self.conversion.is_some();
     }
@@ -49,6 +50,7 @@ impl TypeInformation {
         }
     }
 
+    #[allow(dead_code)]
     pub fn new(name: String, ty: Type) -> Self {
         return Self {
             ty,

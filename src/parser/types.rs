@@ -1,4 +1,3 @@
-use anyhow::{Result, anyhow};
 use std::fmt::{Debug, Display};
 
 use crate::parser::definitions::Definitons;
