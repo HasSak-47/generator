@@ -100,7 +100,11 @@ impl Generator for FastApi {
 
         return code;
     }
-    fn generate_type(&self, name: &str, ty: &Type, _public: bool, defs: &Definitons) -> Code {
+
+    fn generate_type(&self, name: &str, ty: &Type, public: bool, defs: &Definitons) -> Code {
+        if !public {
+            return Code::new_segment();
+        }
         let mut code = Code::new_segment();
         match ty {
             Type::Struct(s) => {
@@ -138,7 +142,7 @@ impl Generator for FastApi {
 
         let func_body = code.create_child_block();
 
-        let mut call = format!("{}(", name,);
+        let mut call = format!("return {}(", name,);
         for (name, _) in &endpoint.params {
             call += format!("{name}, ").as_str();
         }
