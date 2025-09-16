@@ -31,16 +31,16 @@ into_type    = ${ primitive_type ~ " "* ~ "as" ~ " "* ~ repr_type }
 map_type   = ${ "<" ~ " "* ~ primitive_type ~ " "* ~ "," ~ " "* ~ ty ~ " "* ~ ">" }
 named_type = ${ name }
 
-value_type  = ${ value }
-union_type  = @{ untagged_union | tagged_union }
-untagged_union = @{"{" ~ ty ~ " "* ~ "|" ~ " "* ~ ty ~ "}"}
+value_type     = ${ value }
+union_type     = @{ untagged_union | tagged_union }
+untagged_union = @{ "{" ~ ty ~ " "* ~ "|" ~ " "* ~ ty ~ "}" }
 tagged_union   = @{ union_tag ~ "{" ~ union_member ~ " "* ~ "|" ~ " "* ~ union_member ~ "}" }
 
-union_member= ${ (name ~ ":")? ~ ty }
-union_tag   =  { "inner" | "outer" | "untagged" }
-weird_mark  = ${ (option_mark | array_mark) }
-option_mark = @{ "?" }
-array_mark  =  { "[" ~ prec? ~ "]" }
+union_member = ${ (name ~ ":")? ~ ty }
+union_tag    =  { "inner" | "outer" | "untagged" }
+weird_mark   = ${ (option_mark | array_mark) }
+option_mark  = @{ "?" }
+array_mark   =  { "[" ~ prec? ~ "]" }
 
 repr_type = ${ repr_root ~ ("_" ~ prec)? }
 repr_root = ${ datetime }

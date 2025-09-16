@@ -87,8 +87,8 @@ impl TS {
 
     fn ts_union_literal(&self, e: &UnionType, defs: &Definitons) -> String {
         let mut poss = e.members.iter();
-        let mut s = format!("{}",  self.ts_type_literal(defs, &poss.next().unwrap().ty));
-        for UnionMember{ty, ..}in poss {
+        let mut s = format!("{}", self.ts_type_literal(defs, &poss.next().unwrap().ty));
+        for UnionMember { ty, .. } in poss {
             s += format!(" | {}", self.ts_type_literal(defs, ty)).as_str();
         }
 
@@ -100,7 +100,7 @@ impl TS {
                 let fmtter = |u: &UnionMember| {
                     let tag = u.tag.as_ref().unwrap();
                     let ty = &u.ty;
-                    return format!("{{ tag '{tag}', data: {ty}}}");
+                    return format!("{{ tag: '{tag}', data: {ty}}}");
                 };
                 let mut s = fmtter(next);
                 for member in poss {
@@ -288,7 +288,7 @@ impl TS {
 
     fn generate_union_translation<F: Fn(String, &Type, &Definitons) -> String>(
         &self,
-        return_type: &String,
+        _return_type: &String,
         u: &UnionType,
         defs: &Definitons,
         translator: F,
@@ -299,20 +299,22 @@ impl TS {
                 todo!()
             }
             UnionKind::External => {
-                for UnionMember{ty, tag} in &u.members {
+                for UnionMember { ty, tag } in &u.members {
                     let tag = tag.as_ref().unwrap();
                     code.add_line(format!("if(m.tag === '{tag}')"));
                     let ret_code = code.create_child_block();
                     if !ty.contains_into(defs) {
                         ret_code.add_line(format!("return {{tag:'{tag}',data:m.data}}"));
                     } else {
-                        ret_code
-                            .add_line(format!("return {{tag:'{tag}', data:{}}}", translator("m.data".to_string(), ty, defs)));
+                        ret_code.add_line(format!(
+                            "return {{tag:'{tag}', data:{}}}",
+                            translator("m.data".to_string(), ty, defs)
+                        ));
                     }
                     code.add_line("else".to_string());
                 }
-                    code.create_child_block()
-                        .add_line("throw Error('???')".to_string());
+                code.create_child_block()
+                    .add_line("throw Error('???')".to_string());
             }
             UnionKind::Untagged => {
                 todo!()
@@ -507,15 +509,25 @@ impl Generator for TS {
         let response_segment = func_body.create_child_segment();
 
         match &endpoint.return_type {
-            Type::Struct(m) => {
-                for (name, ty) in &m.members {
-                    response_segment.add_child(self.guard_missing_response_field(
-                        name,
-                        ty,
-                        &return_type,
-                    ));
+            Type::Named(name) => {
+                let ty = defs.get_named_type(name).unwrap();
+                if let Type::Struct(s) = ty.get_wire_type() {
+                    for (name, ty) in &s.members {
+                        response_segment.add_child(self.guard_missing_response_field(
+                            name,
+                            ty,
+                            &return_type,
+                        ));
+                    }
                 }
-                func_body.add_line(format!("return into_domain_{name}(j);"));
+                if endpoint.return_type.contains_into(defs) {
+                    func_body.add_line(format!("return into_domain_{name}(j);"));
+                } else {
+                    func_body.add_line(format!("return j as {name};"));
+                }
+            }
+            Type::Null => {
+                func_body.add_line("return".to_string());
             }
             Type::Primitive(p) => {
                 let expected_type = self.ts_signature_for_primitive(p);

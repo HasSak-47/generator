@@ -73,26 +73,25 @@ impl Definitons {
         }
     }
 
-    pub fn populate_union_tags(&mut self){
-        for ty in &mut self.types{
-            if let Type::Union(u) = &mut ty.1.ty{
-                if u.kind == UnionKind::Untagged{
+    pub fn populate_union_tags(&mut self) {
+        for ty in &mut self.types {
+            if let Type::Union(u) = &mut ty.1.ty {
+                if u.kind == UnionKind::Untagged {
                     continue;
                 }
 
-                for mem in &mut u.members{
+                for mem in &mut u.members {
                     if mem.tag.is_none() {
                         mem.tag = Some(mem.ty.to_string())
                     }
                 }
-
             }
         }
     }
 
     /// Ensure untagged unions only contain primitives or other unions (structs would be ambiguous).
     pub fn validate_untagged_union(&self, u: &UnionType) {
-        for UnionMember{ty, ..}in &u.members {
+        for UnionMember { ty, .. } in &u.members {
             match ty {
                 Type::Struct(_) => {
                     panic!("untagged union that contains structs is not valid yet!")
@@ -122,7 +121,7 @@ impl Definitons {
                 Definitons::resolve_type_references(&mut opt.ty, names);
             }
             Type::Union(union) => {
-                for UnionMember{ty,..} in &mut union.members {
+                for UnionMember { ty, .. } in &mut union.members {
                     Definitons::resolve_type_references(ty, names);
                 }
             }
@@ -181,7 +180,7 @@ impl Definitons {
                     } else {
                         s.add_member(UnionMember {
                             tag: member.tag.clone(),
-                            ty: self.convert_to_domain_type(&member.ty)
+                            ty: self.convert_to_domain_type(&member.ty),
                         });
                     }
                 }
@@ -225,7 +224,7 @@ impl Definitons {
                     } else {
                         s.add_member(UnionMember {
                             tag: member.tag.clone(),
-                            ty: self.convert_to_domain_type(&member.ty)
+                            ty: self.convert_to_wire_type(&member.ty),
                         });
                     }
                 }

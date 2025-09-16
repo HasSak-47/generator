@@ -117,9 +117,16 @@ fn handle_type<'a>(p: Pair<'a, Rule>) -> Result<Type> {
                     Rule::ty => union.add_untagged_member(handle_type(ty)?),
                     Rule::union_member => {
                         let mut inner = ty.into_inner();
-                        let tag = inner.next().unwrap().as_str().to_string();
-                        let ty = inner.next().unwrap();
-                        union.add_tagged_member(tag, handle_type(ty)?);
+                        let next = inner.next().unwrap();
+                        match next.as_rule() {
+                            Rule::ty => union.add_untagged_member(handle_type(next)?),
+                            Rule::name => {
+                                let ty = inner.next().unwrap();
+                                union
+                                    .add_tagged_member(next.as_str().to_string(), handle_type(ty)?);
+                            }
+                            _ => unreachable!(),
+                        }
                     }
                     _ => unreachable!(),
                 };
