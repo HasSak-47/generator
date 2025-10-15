@@ -38,3 +38,6 @@ update_product(id: int, product: Product) @put "/product/{id}" -> Product
 
 # Query with enum
 get_summary(status: Status?) @get "/sales/summary" -> SaleSummary
+
+# End Time
+get_summary() @post "/end_time"

@@ -2,12 +2,14 @@ use std::fmt::{Debug, Display};
 
 use anyhow::anyhow;
 
-#[derive(PartialEq)]
+#[derive(Default, PartialEq)]
 pub enum PrimitiveType {
     Integer(Option<usize>),  // int_x
     Unsigned(Option<usize>), // uint_x
     Float(Option<usize>),    // float_x
     String(Option<usize>),   // string_x
+    #[default]
+    Null,
 }
 
 impl PrimitiveType {
@@ -29,6 +31,7 @@ impl PrimitiveType {
             "uint" => Ok(Self::Unsigned(type_prec)), // uint
             "float" => Ok(Self::Float(type_prec)),   // float
             "string" => Ok(Self::String(type_prec)), // string
+            "null" => Ok(Self::Null),                // string
             _ => Err(anyhow!("failed to find primitive type")),
         };
     }
@@ -154,6 +157,12 @@ pub enum Type {
     Model(String),  // Name
 }
 
+impl Default for Type {
+    fn default() -> Self {
+        return Self::Primitive(PrimitiveType::Null);
+    }
+}
+
 impl Type {
     fn int(prec: Option<usize>) -> Self {
         Self::Primitive(PrimitiveType::Integer(prec))
@@ -218,6 +227,7 @@ impl Display for PrimitiveType {
             Self::Unsigned(p) => write!(f, "uint{}", prec(p))?,
             Self::Float(p) => write!(f, "float{}", prec(p))?,
             Self::String(p) => write!(f, "string{}", prec(p))?,
+            Self::Null => write!(f, "null")?,
         }
 
         return Ok(());

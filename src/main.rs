@@ -4,36 +4,34 @@ mod types;
 use std::{collections::HashMap, fs::File, io::Read, path::Path};
 
 use anyhow::{Result, anyhow};
-use pest::{Parser, iterators::Pair};
+use pest::{Parser, Token, iterators::Pair};
 use pest_derive::Parser;
 use types::*;
 
 #[derive(Debug, Default)]
 struct Model {
-    name: String,
     params: Vec<(String, Type)>,
 }
 
 #[derive(Debug, Default)]
 struct Enum {
-    name: String,
     params: Vec<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 enum EndPointMethod {
+    #[default]
     GET,
     POST,
     PUT,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct EndPoint {
-    name: String,
     params: Vec<(String, Type)>,
     method: EndPointMethod,
     url: String,
-    return_type: Option<Type>,
+    return_type: Type,
 }
 
 #[derive(Debug)]
@@ -105,12 +103,11 @@ impl Definitons {
 
                     for pair in iter {
                         match pair.as_rule() {
-                            Rule::name => model.name = pair.as_str().to_string(),
                             Rule::member_field => model.params.push(handle_member_field(pair)),
                             _ => unreachable!("idk how you got here??"),
                         }
                     }
-                    defs.models.insert(model.name.clone(), model);
+                    defs.models.insert(name.as_str().to_string(), model);
                 }
                 Rule::enums => {
                     let mut r#enum = Enum::default();
@@ -123,10 +120,31 @@ impl Definitons {
                         let s = inner.as_str().to_string();
                         r#enum.params.push(s);
                     }
-                    defs.enums.insert(name.to_string(), r#enum);
+                    defs.enums.insert(name.as_str().to_string(), r#enum);
                 }
                 Rule::end_point => {
-                    let inner = inner.into_inner();
+                    let mut iter = inner.into_inner().peekable();
+                    let mut end_point = EndPoint::default();
+                    let name = iter.next().unwrap().as_str().to_string();
+
+                    while iter.peek().unwrap().as_rule() == Rule::member_field {
+                        end_point
+                            .params
+                            .push(handle_member_field(iter.next().unwrap()));
+                    }
+
+                    match iter.next().unwrap().into_inner().next().unwrap().as_str() {
+                        "post" => end_point.method = EndPointMethod::POST,
+                        "put" => end_point.method = EndPointMethod::PUT,
+                        "get" => end_point.method = EndPointMethod::GET,
+                        x => unreachable!("{x} is not a supported method"),
+                    }
+
+                    end_point.url = iter.next().unwrap().to_string();
+                    if let Some(o) = iter.next() {
+                        end_point.return_type = handle_type(o);
+                    }
+                    defs.end_points.insert(name, end_point);
                 }
                 Rule::COMMENT | Rule::EOI => {}
                 _ => unreachable!("how did you got here??"),
@@ -138,6 +156,7 @@ impl Definitons {
 }
 
 fn main() -> Result<()> {
-    Definitons::get_definitions("ex.dsl")?;
+    let defs = Definitons::get_definitions("ex.dsl")?;
+    println!("{defs:#?}");
     return Ok(());
 }

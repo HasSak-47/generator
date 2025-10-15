@@ -1,5 +1,5 @@
 definitions = {
-    SOI ~ (model | enums | end_point )+ ~ EOI
+    SOI ~ (model | enums | end_point)+ ~ EOI
 }
 
 model = {
@@ -11,15 +11,15 @@ enums = {
 }
 
 end_point = {
-    name ~ "(" ~ member_field ~ ("," ~ member_field)* ~ ")" ~ operation_mark ~ path ~ ("->" ~ ty)?
+    name ~ "(" ~ ( member_field ~ ("," ~ member_field)* ~ ","? )? ~ ")" ~ operation_mark ~ path ~ ("->" ~ ty)?
 }
 
-operation_mark = @{ "@" ~ operation }
+operation_mark = ${ "@" ~ operation }
 operation      =  { "get" | "post" | "put" }
 
 path = { string }
 
-member_field   = ${ name ~ " "* ~ ":" ~ " "*  ~ ty }
+member_field   = ${ name ~ " "* ~ ":" ~ " "* ~ ty }
 ty             = ${ (into_type | primitive_type | null_type | complex_type) ~ (option_mark | array_mark)* }
 into_type      = ${ primitive_type ~ " "* ~ "as" ~ " "* ~ weird_types }
 option_mark    = @{ "?" }
