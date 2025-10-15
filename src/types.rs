@@ -1,6 +1,7 @@
 use std::fmt::{Debug, Display};
 
 use anyhow::anyhow;
+use pest_derive::Parser;
 
 #[derive(PartialEq)]
 pub enum PrimitiveType {
@@ -141,6 +142,8 @@ impl Repr {
     }
 }
 
+#[derive(Parser)]
+#[grammar = "pest/type.pest"]
 #[derive(PartialEq)]
 pub enum Type {
     Primitive(PrimitiveType), // PT

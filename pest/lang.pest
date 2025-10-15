@@ -1,0 +1,43 @@
+definitions = {
+    SOI ~ (model | enums | end_point | comment )+ ~ EOI
+}
+
+model = {
+    "model" ~ name ~ "{" ~ member_field ~ ("," ~ member_field)* ~ ","? ~ "}"
+}
+
+enums = {
+    "enum" ~ name ~ "{" ~ string ~ ("," ~ string)* ~ ","? ~ "}"
+}
+
+end_point = {
+    name ~ "(" ~ member_field ~ ("," ~ member_field)* ~ ")" ~ operation_mark ~ path ~ ("->" ~ ty)?
+}
+
+operation_mark = @{ "@" ~ operation }
+operation      =  { "get" | "post" }
+
+path = { string }
+
+member_field   =  ${ name ~ " "* ~ ":" ~ " "*  ~ ty }
+ty             =  { (into_type | primitive_type | null_type | complex_type) ~ (option_mark | array_mark)* }
+into_type      =  ${ primitive_type ~ "as" ~ weird_types }
+option_mark    =  @{ "?" }
+array_mark     =  ${ "[" ~ prec? ~ "]" }
+complex_type   =  { name }
+primitive_type = @{ primitive_root ~ (&"_" ~ prec)? }
+primitive_root = @{ "int" | "float" | "string" }
+null_type      = @{ "null" }
+weird_types    =  { "datetime" }
+name           =  { (ASCII_ALPHA | "_")+ }
+prec           =  { ASCII_DIGIT+ }
+string         = ${ "\"" ~ inner ~ "\"" }
+inner          = @{ char* }
+char           =  {
+    !("\"" | "\\") ~ ANY
+  | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
+  | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
+}
+
+WHITESPACE = _{ " " | "\t" | "\n" }
+comment    = _{ "#" ~ (!"\n" ~ ANY)+}
