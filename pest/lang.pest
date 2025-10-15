@@ -1,5 +1,5 @@
 definitions = {
-    SOI ~ (model | enums | end_point | comment )+ ~ EOI
+    SOI ~ (model | enums | end_point )+ ~ EOI
 }
 
 model = {
@@ -15,22 +15,22 @@ end_point = {
 }
 
 operation_mark = @{ "@" ~ operation }
-operation      =  { "get" | "post" }
+operation      =  { "get" | "post" | "put" }
 
 path = { string }
 
-member_field   =  ${ name ~ " "* ~ ":" ~ " "*  ~ ty }
-ty             =  { (into_type | primitive_type | null_type | complex_type) ~ (option_mark | array_mark)* }
-into_type      =  ${ primitive_type ~ "as" ~ weird_types }
-option_mark    =  @{ "?" }
-array_mark     =  ${ "[" ~ prec? ~ "]" }
-complex_type   =  { name }
-primitive_type = @{ primitive_root ~ (&"_" ~ prec)? }
-primitive_root = @{ "int" | "float" | "string" }
-null_type      = @{ "null" }
+member_field   = ${ name ~ " "* ~ ":" ~ " "*  ~ ty }
+ty             = ${ (into_type | primitive_type | null_type | complex_type) ~ (option_mark | array_mark)* }
+into_type      = ${ primitive_type ~ " "* ~ "as" ~ " "* ~ weird_types }
+option_mark    = @{ "?" }
+array_mark     =  { "[" ~ prec? ~ "]" }
+complex_type   = ${ name }
+primitive_type = ${ primitive_root ~ (&"_" ~ prec)? }
+primitive_root =  { "int" | "float" | "string" }
+null_type      =  { "null" }
 weird_types    =  { "datetime" }
-name           =  { (ASCII_ALPHA | "_")+ }
-prec           =  { ASCII_DIGIT+ }
+name           = @{ (ASCII_ALPHA | "_")+ }
+prec           = @{ ASCII_DIGIT+ }
 string         = ${ "\"" ~ inner ~ "\"" }
 inner          = @{ char* }
 char           =  {
@@ -40,4 +40,4 @@ char           =  {
 }
 
 WHITESPACE = _{ " " | "\t" | "\n" }
-comment    = _{ "#" ~ (!"\n" ~ ANY)+}
+COMMENT    = _{ "#" ~ (!"\n" ~ ANY)* }
