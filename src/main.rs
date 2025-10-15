@@ -37,7 +37,11 @@ struct EndPoint {
 }
 
 #[derive(Debug)]
-struct Definitons {}
+struct Definitons {
+    models: HashMap<String, Model>,
+    enums: HashMap<String, Enum>,
+    end_points: HashMap<String, EndPoint>,
+}
 
 #[derive(Debug, Parser)]
 #[grammar = "pest/lang.pest"]
@@ -45,7 +49,8 @@ struct LangParser {}
 
 fn handle_type<'a>(p: Pair<'a, Rule>) -> Type {
     assert!(p.as_rule() == Rule::ty);
-    // WARN: I already had parsing code and didn't want to waste it
+    // WARN: I already had type parsing code
+    // and I didn't want to waste it.
     // it is probably hot garbage
     if let Ok(t) = Type::parse(p.as_str()) {
         return t;
@@ -68,6 +73,13 @@ fn handle_member_field<'a>(p: Pair<'a, Rule>) -> (String, Type) {
     unreachable!("not a member definition!")
 }
 impl Definitons {
+    fn new() -> Self {
+        Self {
+            models: HashMap::new(),
+            enums: HashMap::new(),
+            end_points: HashMap::new(),
+        }
+    }
     fn get_definitions<P: AsRef<Path>>(p: P) -> Result<Self> {
         let mut file = File::open(p)?;
         let mut buf = String::new();
@@ -81,47 +93,47 @@ impl Definitons {
             unreachable!("not a definition file!")
         }
 
-        let mut models = HashMap::<String, Model>::new();
-        let mut enums = HashMap::<String, Enum>::new();
-        let mut enums = HashMap::<String, Enum>::new();
+        let mut defs = Definitons::new();
 
         for inner in p.into_inner() {
             match inner.as_rule() {
                 Rule::model => {
                     let mut model = Model::default();
-                    for pair in inner.into_inner() {
+                    let mut iter = inner.into_inner();
+                    let name = iter.next().unwrap();
+                    assert!(name.as_rule() == Rule::name);
+
+                    for pair in iter {
                         match pair.as_rule() {
                             Rule::name => model.name = pair.as_str().to_string(),
                             Rule::member_field => model.params.push(handle_member_field(pair)),
                             _ => unreachable!("idk how you got here??"),
                         }
                     }
-                    models.insert(model.name.clone(), model);
+                    defs.models.insert(model.name.clone(), model);
                 }
                 Rule::enums => {
                     let mut r#enum = Enum::default();
                     let mut iter = inner.into_inner();
                     let name = iter.next().unwrap();
                     assert!(name.as_rule() == Rule::name);
-                    r#enum.name = name.to_string();
 
                     for inner in iter {
                         assert!(inner.as_rule() == Rule::string);
                         let s = inner.as_str().to_string();
                         r#enum.params.push(s);
                     }
-                    enums.insert(r#enum.name.clone(), r#enum);
+                    defs.enums.insert(name.to_string(), r#enum);
                 }
                 Rule::end_point => {
                     let inner = inner.into_inner();
                 }
-                Rule::COMMENT => {}
-                Rule::EOI => {}
-                _ => unreachable!("idk how you got here??"),
+                Rule::COMMENT | Rule::EOI => {}
+                _ => unreachable!("how did you got here??"),
             }
         }
 
-        todo!("finish this lmao");
+        return Ok(defs);
     }
 }
 
