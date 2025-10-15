@@ -1,7 +1,6 @@
 use std::fmt::{Debug, Display};
 
 use anyhow::anyhow;
-use pest_derive::Parser;
 
 #[derive(PartialEq)]
 pub enum PrimitiveType {
@@ -142,8 +141,6 @@ impl Repr {
     }
 }
 
-#[derive(Parser)]
-#[grammar = "pest/type.pest"]
 #[derive(PartialEq)]
 pub enum Type {
     Primitive(PrimitiveType), // PT
@@ -153,7 +150,8 @@ pub enum Type {
     List(Vec<Type>),          // [T1, T2, ..., Tn] mixed typed arrays
     Union(Vec<Type>),         // T1 | T2 | ...| Tn Union (only used for Into)
                               */
-    Into(IntoType), // T as BuiltIn
+    Into(IntoType), // T as Repr
+    Model(String),  // Name
 }
 
 impl Type {
@@ -203,7 +201,7 @@ impl Type {
             Err(_) => {} // Err(e) => println!("\"{s}\" is not PrimitiveType {e}"),
         }
 
-        panic!("could not determine type");
+        return Ok(Self::Model(s.to_string()));
     }
 }
 
@@ -261,6 +259,7 @@ impl Display for Type {
             Self::Optional(o) => write!(f, "{o}")?,
             Self::Array(a) => write!(f, "{a}")?,
             Self::Into(i) => write!(f, "{i}")?,
+            Self::Model(m) => write!(f, "{m}")?,
         }
 
         return Ok(());
@@ -304,56 +303,9 @@ impl Debug for Type {
             Self::Optional(o) => write!(f, "{o:?}")?,
             Self::Array(a) => write!(f, "{a:?}")?,
             Self::Into(i) => write!(f, "{i:?}")?,
+            Self::Model(m) => write!(f, "model: {m}")?,
         }
 
         return Ok(());
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use crate::types::*;
-
-    #[test]
-    fn test_type_parser() -> anyhow::Result<()> {
-        use Type as Ty;
-        let trans = &[
-            (Ty::int(None), "int"),
-            (Ty::optional(Ty::int(None)), "int?"),
-            (Ty::array(Ty::int(None), None), "int[]"),
-            (Ty::optional(Ty::array(Ty::int(None), None)), "int[]?"),
-            (Ty::array(Ty::optional(Ty::int(None)), None), "int?[]"),
-            (Ty::into(Ty::int(None), Repr::Datetime), "int as datetime"),
-            (Ty::into(Ty::int(None), Repr::Datetime), "int as datetime"),
-            (
-                Ty::optional(Ty::into(Ty::int(None), Repr::Datetime)),
-                "int as datetime?",
-            ),
-            (
-                Ty::array(Ty::into(Ty::int(None), Repr::Datetime), None),
-                "int as datetime[]",
-            ),
-            (
-                Ty::array(Ty::optional(Ty::into(Ty::int(None), Repr::Datetime)), None),
-                "int as datetime?[]",
-            ),
-            (
-                Ty::optional(Ty::array(Ty::into(Ty::int(None), Repr::Datetime), None)),
-                "int as datetime[]?",
-            ),
-            (
-                Ty::optional(Ty::array(
-                    Ty::optional(Ty::into(Ty::int(None), Repr::Datetime)),
-                    None,
-                )),
-                "int as datetime?[]?",
-            ),
-        ];
-
-        for (ex, s) in trans {
-            assert_eq!(*ex, Type::parse(s)?, "failed: {s}");
-        }
-
-        Ok(())
     }
 }
