@@ -56,6 +56,7 @@ impl OptionType {
         });
     }
 
+    #[allow(dead_code)]
     fn new(ty: Type) -> Self {
         Self { ty: Box::new(ty) }
     }
@@ -93,6 +94,7 @@ impl ArrayType {
         });
     }
 
+    #[allow(dead_code)]
     fn new(ty: Type, len: Option<usize>) -> Self {
         Self {
             ty: Box::new(ty),
@@ -108,6 +110,7 @@ pub struct IntoType {
 }
 
 impl IntoType {
+    #[allow(dead_code)]
     fn new(from: Type, into: Repr) -> Self {
         Self {
             from: Box::new(from),
@@ -164,25 +167,32 @@ impl Default for Type {
 }
 
 impl Type {
+    #[allow(dead_code)]
     fn int(prec: Option<usize>) -> Self {
         Self::Primitive(PrimitiveType::Integer(prec))
     }
+    #[allow(dead_code)]
     fn uint(prec: Option<usize>) -> Self {
         Self::Primitive(PrimitiveType::Unsigned(prec))
     }
+    #[allow(dead_code)]
     fn float(prec: Option<usize>) -> Self {
         Self::Primitive(PrimitiveType::Float(prec))
     }
+    #[allow(dead_code)]
     fn string(prec: Option<usize>) -> Self {
         Self::Primitive(PrimitiveType::String(prec))
     }
 
+    #[allow(dead_code)]
     fn optional(t: Type) -> Self {
         Self::Optional(OptionType::new(t))
     }
+    #[allow(dead_code)]
     fn array(t: Type, prec: Option<usize>) -> Self {
         Self::Array(ArrayType::new(t, prec))
     }
+    #[allow(dead_code)]
     fn into(from: Type, to: Repr) -> Self {
         Self::Into(IntoType::new(from, to))
     }
