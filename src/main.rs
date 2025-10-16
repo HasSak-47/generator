@@ -1,13 +1,19 @@
 mod dsl;
 mod types;
 
-use std::{collections::HashMap, fs::File, io::Read, path::Path};
+use std::{
+    collections::{HashMap, HashSet},
+    fs::File,
+    io::Read,
+    path::Path,
+};
 
 use anyhow::{Result, anyhow};
-use pest::{Parser, Token, iterators::Pair};
+use pest::{Parser, iterators::Pair};
 use pest_derive::Parser;
 use types::*;
 
+// TODO: merge Model and Enum with Type
 #[derive(Debug, Default)]
 struct Model {
     params: Vec<(String, Type)>,
@@ -52,9 +58,9 @@ fn handle_type<'a>(p: Pair<'a, Rule>) -> Type {
     // it is probably hot garbage
     if let Ok(t) = Type::parse(p.as_str()) {
         return t;
+    } else {
+        return Type::Undetermined(p.as_str().to_string());
     }
-
-    unreachable!("not a type!")
 }
 
 fn handle_member_field<'a>(p: Pair<'a, Rule>) -> (String, Type) {
@@ -78,6 +84,27 @@ impl Definitons {
             end_points: HashMap::new(),
         }
     }
+
+    fn expand_types(&mut self) {
+        let model_names: Vec<String> = self.models.keys().map(|k| k.clone()).collect();
+        let enum_names: Vec<String> = self.enums.keys().map(|k| k.clone()).collect();
+        for (_, model) in self.models.iter_mut() {
+            for (_, param) in model.params.iter_mut() {
+                if let Type::Undetermined(u) = param {
+                    if model_names.iter().find(|n| **n == *u).is_some() {
+                        *param = Type::Model(u.clone());
+                        continue;
+                    }
+
+                    if enum_names.iter().find(|n| **n == *u).is_some() {
+                        *param = Type::Model(u.clone());
+                        continue;
+                    }
+                }
+            }
+        }
+    }
+
     fn get_definitions<P: AsRef<Path>>(p: P) -> Result<Self> {
         let mut file = File::open(p)?;
         let mut buf = String::new();
@@ -151,12 +178,18 @@ impl Definitons {
             }
         }
 
+        defs.expand_types();
+
         return Ok(defs);
     }
 }
 
+trait Generator {
+    fn handle_type(&self, defs: &Definitons, ty: &Type) -> String;
+    fn handle_param(&self, name: String, ty: String) -> String;
+}
+
 fn main() -> Result<()> {
     let defs = Definitons::get_definitions("ex.dsl")?;
-    println!("{defs:#?}");
     return Ok(());
 }

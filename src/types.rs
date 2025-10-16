@@ -56,7 +56,6 @@ impl OptionType {
         });
     }
 
-    #[allow(dead_code)]
     fn new(ty: Type) -> Self {
         Self { ty: Box::new(ty) }
     }
@@ -94,7 +93,6 @@ impl ArrayType {
         });
     }
 
-    #[allow(dead_code)]
     fn new(ty: Type, len: Option<usize>) -> Self {
         Self {
             ty: Box::new(ty),
@@ -110,7 +108,6 @@ pub struct IntoType {
 }
 
 impl IntoType {
-    #[allow(dead_code)]
     fn new(from: Type, into: Repr) -> Self {
         Self {
             from: Box::new(from),
@@ -156,8 +153,10 @@ pub enum Type {
     List(Vec<Type>),          // [T1, T2, ..., Tn] mixed typed arrays
     Union(Vec<Type>),         // T1 | T2 | ...| Tn Union (only used for Into)
                               */
-    Into(IntoType), // T as Repr
-    Model(String),  // Name
+    Into(IntoType),       // T as Repr
+    Model(String),        // Name
+    Enum(String),         // Name
+    Undetermined(String), // Name
 }
 
 impl Default for Type {
@@ -220,7 +219,7 @@ impl Type {
             Err(_) => {} // Err(e) => println!("\"{s}\" is not PrimitiveType {e}"),
         }
 
-        return Ok(Self::Model(s.to_string()));
+        return Err(anyhow!("could not generate type"));
     }
 }
 
@@ -280,6 +279,8 @@ impl Display for Type {
             Self::Array(a) => write!(f, "{a}")?,
             Self::Into(i) => write!(f, "{i}")?,
             Self::Model(m) => write!(f, "{m}")?,
+            Self::Enum(e) => write!(f, "{e}")?,
+            Self::Undetermined(u) => write!(f, "{u}")?,
         }
 
         return Ok(());
@@ -324,6 +325,8 @@ impl Debug for Type {
             Self::Array(a) => write!(f, "{a:?}")?,
             Self::Into(i) => write!(f, "{i:?}")?,
             Self::Model(m) => write!(f, "model: {m}")?,
+            Self::Enum(e) => write!(f, "model: {e}")?,
+            Self::Undetermined(u) => write!(f, "{u}")?,
         }
 
         return Ok(());
