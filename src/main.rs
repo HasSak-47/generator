@@ -1,4 +1,6 @@
 mod dsl;
+mod python;
+mod ts;
 mod types;
 
 use std::{
@@ -186,7 +188,8 @@ impl Definitons {
 
 trait Generator {
     fn handle_type(&self, defs: &Definitons, ty: &Type) -> String;
-    fn handle_param(&self, name: String, ty: String) -> String;
+    fn handle_model_param(&self, name: String, ty: String) -> String;
+    fn handle_model(&self, name: String, params: Vec<String>) -> String;
 }
 
 fn main() -> Result<()> {

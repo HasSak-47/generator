@@ -39,7 +39,7 @@ impl PrimitiveType {
 
 #[derive(PartialEq)]
 pub struct OptionType {
-    ty: Box<Type>,
+    pub ty: Box<Type>,
 }
 
 impl OptionType {
@@ -63,8 +63,8 @@ impl OptionType {
 
 #[derive(PartialEq)]
 pub struct ArrayType {
-    ty: Box<Type>,
-    len: Option<usize>,
+    pub ty: Box<Type>,
+    pub len: Option<usize>,
 }
 
 impl ArrayType {
