@@ -258,6 +258,9 @@ fn main() -> Result<()> {
     for (name, model) in &defs.models {
         println!("{}", fast_api.handle_model(name, model, &defs))
     }
+    for (name, model) in &defs.models {
+        println!("{}", fast_api.handle_endpoint(name, model, &defs))
+    }
     return Ok(());
 }
 
