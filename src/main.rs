@@ -162,18 +162,8 @@ impl Definitons {
         let enum_names: Vec<String> = self.enums.keys().map(|k| k.clone()).collect();
         for (_, model) in self.models.iter_mut() {
             for (_, param) in model.params.iter_mut() {
-                if let Type::Undetermined(u) = param {
-                    println!("Undetermined {u}");
-                    if model_names.iter().find(|n| **n == *u).is_some() {
-                        *param = Type::Model(u.clone());
-                        continue;
-                    }
-
-                    if enum_names.iter().find(|n| **n == *u).is_some() {
-                        *param = Type::Enum(u.clone());
-                        continue;
-                    }
-                }
+                param.determine_enum(&enum_names);
+                param.determine_model(&model_names);
             }
         }
     }

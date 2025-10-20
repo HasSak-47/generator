@@ -112,6 +112,31 @@ impl Type {
     pub fn into(from: Type, to: Repr) -> Self {
         Self::Into(IntoType::new(from, to))
     }
+
+    fn determine<F: Fn(String) -> Type>(&mut self, models: &Vec<String>, builder: F) {
+        match self {
+            Self::Array(arr) => {
+                arr.ty.determine(models, builder);
+            }
+            Self::Optional(opt) => {
+                opt.ty.determine(models, builder);
+            }
+            Self::Undetermined(name) => {
+                if models.contains(&name) {
+                    *self = builder(name.clone());
+                }
+            }
+            _ => {}
+        }
+    }
+
+    pub fn determine_enum(&mut self, enums: &Vec<String>) {
+        return self.determine(enums, |s| Self::Enum(s));
+    }
+
+    pub fn determine_model(&mut self, models: &Vec<String>) {
+        return self.determine(models, |s| Self::Model(s));
+    }
 }
 
 impl Display for PrimitiveType {
