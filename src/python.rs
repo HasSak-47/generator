@@ -1,15 +1,15 @@
 use crate::{
-    Definitons, Generator, handle_type,
+    Definitons, EndPoint, Generator, Model, handle_type,
     types::{PrimitiveType, Type},
 };
 
-struct FastApi {
+pub struct FastApi {
     app_name: String,
     generate_enums: bool,
 }
 
 impl FastApi {
-    fn new() -> Self {
+    pub fn new() -> Self {
         return Self {
             app_name: "app".to_string(),
             generate_enums: false,
@@ -26,23 +26,44 @@ impl FastApi {
         }
         .to_string();
     }
-}
 
-impl Generator for FastApi {
     fn handle_type(&self, defs: &Definitons, ty: &Type) -> String {
         return match ty {
             Type::Primitive(p) => self.handle_primitive(p),
             Type::Optional(o) => format!("Optional[{}]", self.handle_type(defs, &o.ty)),
             Type::Array(a) => format!("List[{}]", self.handle_type(defs, &a.ty)),
-            _ => unreachable!("I just haven't implemented it :)"),
+            Type::Into(i) => format!("{}", self.handle_type(defs, &i.from)),
+            Type::Model(m) => format!("{m}",),
+            Type::Enum(e) => format!("{e}",),
+            Type::Undetermined(u) => panic!("Undetermined: {u:?} reached a FastApi generator",),
+            Type::Null => format!("None",),
         };
     }
+}
 
-    fn handle_model_param(&self, name: String, ty: String) -> String {
-        todo!()
+impl Generator for FastApi {
+    fn handle_model(&self, name: &str, model: &Model, defs: &Definitons) -> String {
+        let mut code = format!("class {}(BaseModel):", name);
+        for (name, ty) in &model.params {
+            code += format!("\n\t{name}: {}", self.handle_type(defs, &ty)).as_str();
+        }
+
+        return code;
     }
 
-    fn handle_model(&self, name: String, params: Vec<String>) -> String {
-        todo!()
+    fn handle_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> String {
+        let mut code = format!("@{}.{}({})", self.app_name, endpoint.method, endpoint.url);
+        code += format!("def {}(", name,).as_str();
+        for (name, ty) in &endpoint.params {
+            code += format!("{name}: {}, ", self.handle_type(defs, &ty)).as_str();
+        }
+        code += "):\n\t";
+
+        code += format!("{}(", name,).as_str();
+        for (name, _) in &endpoint.params {
+            code += format!("{name}, ").as_str();
+        }
+
+        return code;
     }
 }

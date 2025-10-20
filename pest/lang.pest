@@ -11,7 +11,7 @@ enums = {
 }
 
 end_point = {
-    name ~ "(" ~ ( member_field ~ ("," ~ member_field)* ~ ","? )? ~ ")" ~ operation_mark ~ path ~ ("->" ~ ty)?
+    name ~ "(" ~ (member_field ~ ("," ~ member_field)* ~ ","?)? ~ ")" ~ operation_mark ~ path ~ ("->" ~ ty)?
 }
 
 operation_mark = ${ "@" ~ operation }
@@ -20,12 +20,13 @@ operation      =  { "get" | "post" | "put" }
 path = { string }
 
 member_field   = ${ name ~ " "* ~ ":" ~ " "* ~ ty }
-ty             = ${ (into_type | primitive_type | null_type | complex_type) ~ (option_mark | array_mark)* }
+ty             = ${ (into_type | primitive_type | null_type | complex_type) ~ weird_mark* }
 into_type      = ${ primitive_type ~ " "* ~ "as" ~ " "* ~ weird_types }
+weird_mark     = ${ (option_mark | array_mark) }
 option_mark    = @{ "?" }
 array_mark     =  { "[" ~ prec? ~ "]" }
 complex_type   = ${ name }
-primitive_type = ${ primitive_root ~ (&"_" ~ prec)? }
+primitive_type = ${ primitive_root ~ ("_" ~ prec)? }
 primitive_root =  { "int" | "uint" | "float" | "string" }
 null_type      =  { "null" }
 weird_types    =  { "datetime" }

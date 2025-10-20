@@ -5,6 +5,7 @@ mod types;
 
 use std::{
     collections::{HashMap, HashSet},
+    fmt::Display,
     fs::File,
     io::Read,
     path::Path,
@@ -34,6 +35,21 @@ enum EndPointMethod {
     PUT,
 }
 
+impl Display for EndPointMethod {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::GET => "get",
+                Self::POST => "post",
+                Self::PUT => "put",
+            }
+        )?;
+        return Ok(());
+    }
+}
+
 #[derive(Debug, Default)]
 struct EndPoint {
     params: Vec<(String, Type)>,
@@ -53,16 +69,70 @@ struct Definitons {
 #[grammar = "pest/lang.pest"]
 struct LangParser {}
 
-fn handle_type<'a>(p: Pair<'a, Rule>) -> Type {
-    assert!(p.as_rule() == Rule::ty);
-    // WARN: I already had type parsing code
-    // and I didn't want to waste it.
-    // it is probably hot garbage
-    if let Ok(t) = Type::parse(p.as_str()) {
-        return t;
-    } else {
-        return Type::Undetermined(p.as_str().to_string());
+fn handle_primitive_type<'a>(p: Pair<'a, Rule>) -> Type {
+    let mut iter = p.into_inner();
+    let primitve_root = iter.next().unwrap();
+    assert_eq!(
+        primitve_root.as_rule(),
+        Rule::primitive_root,
+        "non primitive root found!"
+    );
+    let prec = iter
+        .next()
+        .and_then(|p| usize::from_str_radix(p.as_str(), 10).ok());
+    let primitive = primitve_root.as_str().to_string();
+    match primitive.as_str() {
+        "int" => Type::int(prec),
+        "uint" => Type::uint(prec),
+        "float" => Type::float(prec),
+        "string" => Type::string(prec),
+        s => unreachable!("unreachable string reached? : {s:?}"),
     }
+}
+
+fn handle_type<'a>(p: Pair<'a, Rule>) -> Type {
+    assert_eq!(p.as_rule(), Rule::ty);
+    let mut iter = p.into_inner();
+    let next = iter.next().unwrap();
+
+    let mut ty = match next.as_rule() {
+        Rule::primitive_type => handle_primitive_type(next),
+        Rule::null_type => Type::Null,
+        Rule::complex_type => Type::Undetermined(next.as_str().to_string()),
+        Rule::into_type => {
+            let mut inner = next.into_inner();
+            let from = inner.next().unwrap();
+            let to = inner.next().unwrap();
+
+            Type::into(
+                handle_primitive_type(from),
+                match to.as_str() {
+                    "datetime" => Repr::Datetime,
+                    _ => unreachable!(),
+                },
+            )
+        }
+        e => unreachable!("unreachable rule reached? : {e:?}"),
+    };
+
+    while let Some(_) = iter.peek() {
+        let next = iter.next().unwrap();
+        assert_eq!(next.as_rule(), Rule::weird_mark);
+        let mark = next.into_inner().next().unwrap();
+        match mark.as_rule() {
+            Rule::option_mark => ty = Type::optional(ty),
+            Rule::array_mark => {
+                let prec = mark
+                    .into_inner()
+                    .next()
+                    .and_then(|p| usize::from_str_radix(p.as_str(), 10).ok());
+                ty = Type::array(ty, prec);
+            }
+            e => unreachable!("unreachable rule reached? : {e:?}"),
+        }
+    }
+
+    return ty;
 }
 
 fn handle_member_field<'a>(p: Pair<'a, Rule>) -> (String, Type) {
@@ -93,13 +163,14 @@ impl Definitons {
         for (_, model) in self.models.iter_mut() {
             for (_, param) in model.params.iter_mut() {
                 if let Type::Undetermined(u) = param {
+                    println!("Undetermined {u}");
                     if model_names.iter().find(|n| **n == *u).is_some() {
                         *param = Type::Model(u.clone());
                         continue;
                     }
 
                     if enum_names.iter().find(|n| **n == *u).is_some() {
-                        *param = Type::Model(u.clone());
+                        *param = Type::Enum(u.clone());
                         continue;
                     }
                 }
@@ -187,12 +258,63 @@ impl Definitons {
 }
 
 trait Generator {
-    fn handle_type(&self, defs: &Definitons, ty: &Type) -> String;
-    fn handle_model_param(&self, name: String, ty: String) -> String;
-    fn handle_model(&self, name: String, params: Vec<String>) -> String;
+    fn handle_model(&self, name: &str, model: &Model, defs: &Definitons) -> String;
+    fn handle_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> String;
 }
 
 fn main() -> Result<()> {
     let defs = Definitons::get_definitions("ex.dsl")?;
+    let fast_api = python::FastApi::new();
+    for (name, model) in &defs.models {
+        println!("{}", fast_api.handle_model(name, model, &defs))
+    }
     return Ok(());
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn type_test() -> anyhow::Result<()> {
+        let matches = &[
+            ("int", Type::int(None)),
+            ("int_32", Type::int(Some(32))),
+            ("int?", Type::optional(Type::int(None))),
+            ("int[]", Type::array(Type::int(None), None)),
+            ("int[10]", Type::array(Type::int(None), Some(10))),
+            (
+                "int[10]?",
+                Type::optional(Type::array(Type::int(None), Some(10))),
+            ),
+            (
+                "int?[10]",
+                Type::array(Type::optional(Type::int(None)), Some(10)),
+            ),
+            (
+                "Product?[10]",
+                Type::array(
+                    Type::optional(Type::Undetermined("Product".to_string())),
+                    Some(10),
+                ),
+            ),
+            (
+                "int_32 as datetime[10]",
+                Type::array(Type::into(Type::int(Some(32)), Repr::Datetime), Some(10)),
+            ),
+            (
+                "int_32 as datetime?[10]",
+                Type::array(
+                    Type::optional(Type::into(Type::int(Some(32)), Repr::Datetime)),
+                    Some(10),
+                ),
+            ),
+        ];
+        for (s, t) in matches {
+            let parse = LangParser::parse(Rule::ty, s)?.next().unwrap();
+            let ty = handle_type(parse);
+            assert_eq!(ty, *t);
+        }
+        return Ok(());
+    }
 }

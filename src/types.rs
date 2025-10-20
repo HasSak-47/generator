@@ -12,51 +12,13 @@ pub enum PrimitiveType {
     Null,
 }
 
-impl PrimitiveType {
-    pub fn parse<S: AsRef<str>>(s: S) -> anyhow::Result<Self> {
-        let s = s.as_ref();
-        let has_prec = s.find('_').is_some();
-        let (type_dec, type_prec) = if has_prec {
-            let mut split = s.split('_');
-            (
-                split.next().unwrap(),
-                split.next().and_then(|s| usize::from_str_radix(s, 10).ok()),
-            )
-        } else {
-            (s, None)
-        };
-
-        return match type_dec {
-            "int" => Ok(Self::Integer(type_prec)),   // int
-            "uint" => Ok(Self::Unsigned(type_prec)), // uint
-            "float" => Ok(Self::Float(type_prec)),   // float
-            "string" => Ok(Self::String(type_prec)), // string
-            "null" => Ok(Self::Null),                // string
-            _ => Err(anyhow!("failed to find primitive type")),
-        };
-    }
-}
-
 #[derive(PartialEq)]
 pub struct OptionType {
     pub ty: Box<Type>,
 }
 
 impl OptionType {
-    pub fn parse<S: AsRef<str>>(s: S) -> anyhow::Result<Self> {
-        let mut chars: Vec<char> = s.as_ref().chars().collect();
-        let qs = chars.pop().unwrap();
-        if qs != '?' {
-            return Err(anyhow!("could not find '?'"));
-        }
-        let type_body = String::from_iter(chars);
-
-        return Ok(Self {
-            ty: Box::new(Type::parse(type_body)?),
-        });
-    }
-
-    fn new(ty: Type) -> Self {
+    pub fn new(ty: Type) -> Self {
         Self { ty: Box::new(ty) }
     }
 }
@@ -68,32 +30,7 @@ pub struct ArrayType {
 }
 
 impl ArrayType {
-    pub fn parse<S: AsRef<str>>(s: S) -> anyhow::Result<Self> {
-        let chars: Vec<char> = s.as_ref().chars().collect();
-        let ob = chars
-            .iter()
-            .enumerate()
-            .find(|x| *x.1 == '[')
-            .ok_or(anyhow!("No open bracket found"))?
-            .0;
-        let cb = chars
-            .iter()
-            .enumerate()
-            .find(|x| *x.1 == ']')
-            .ok_or(anyhow!("No close bracket found"))?
-            .0;
-
-        let prec_str = String::from_iter(chars[ob..cb].iter());
-        let prec = usize::from_str_radix(&prec_str, 10).ok();
-
-        let type_body = String::from_iter(chars[0..ob].iter());
-        return Ok(Self {
-            ty: Box::new(Type::parse(type_body)?),
-            len: prec,
-        });
-    }
-
-    fn new(ty: Type, len: Option<usize>) -> Self {
+    pub fn new(ty: Type, len: Option<usize>) -> Self {
         Self {
             ty: Box::new(ty),
             len,
@@ -103,30 +40,16 @@ impl ArrayType {
 
 #[derive(PartialEq)]
 pub struct IntoType {
-    from: Box<Type>,
-    into: Repr,
+    pub from: Box<Type>,
+    pub into: Repr,
 }
 
 impl IntoType {
-    fn new(from: Type, into: Repr) -> Self {
+    pub fn new(from: Type, into: Repr) -> Self {
         Self {
             from: Box::new(from),
             into,
         }
-    }
-
-    pub fn parse<S: AsRef<str>>(s: S) -> anyhow::Result<Self> {
-        let s = s.as_ref();
-
-        let split = s.find("as").ok_or(anyhow!("as not found"))?;
-        let chars: Vec<_> = s.chars().collect();
-        let start_t = Type::parse(String::from_iter(chars[..(split - 1)].iter()))?;
-        let end_t = Repr::parse(String::from_iter(chars[(split + 3)..].iter()))?;
-
-        return Ok(Self {
-            from: Box::new(start_t),
-            into: end_t,
-        });
     }
 }
 
@@ -135,19 +58,13 @@ pub enum Repr {
     Datetime,
 }
 
-impl Repr {
-    pub fn parse<S: AsRef<str>>(s: S) -> anyhow::Result<Self> {
-        return match s.as_ref() {
-            "datetime" => Ok(Self::Datetime),
-            _ => Err(anyhow!("failed to find Repr type")),
-        };
-    }
-}
+impl Repr {}
 
 #[derive(PartialEq)]
 pub enum Type {
     Primitive(PrimitiveType), // PT
     Optional(OptionType),     // T?
+    Null,                     // null
     Array(ArrayType),         // T[x] singled typed arrays
     /*
     List(Vec<Type>),          // [T1, T2, ..., Tn] mixed typed arrays
@@ -167,59 +84,33 @@ impl Default for Type {
 
 impl Type {
     #[allow(dead_code)]
-    fn int(prec: Option<usize>) -> Self {
+    pub fn int(prec: Option<usize>) -> Self {
         Self::Primitive(PrimitiveType::Integer(prec))
     }
     #[allow(dead_code)]
-    fn uint(prec: Option<usize>) -> Self {
+    pub fn uint(prec: Option<usize>) -> Self {
         Self::Primitive(PrimitiveType::Unsigned(prec))
     }
     #[allow(dead_code)]
-    fn float(prec: Option<usize>) -> Self {
+    pub fn float(prec: Option<usize>) -> Self {
         Self::Primitive(PrimitiveType::Float(prec))
     }
     #[allow(dead_code)]
-    fn string(prec: Option<usize>) -> Self {
+    pub fn string(prec: Option<usize>) -> Self {
         Self::Primitive(PrimitiveType::String(prec))
     }
 
     #[allow(dead_code)]
-    fn optional(t: Type) -> Self {
+    pub fn optional(t: Type) -> Self {
         Self::Optional(OptionType::new(t))
     }
     #[allow(dead_code)]
-    fn array(t: Type, prec: Option<usize>) -> Self {
+    pub fn array(t: Type, prec: Option<usize>) -> Self {
         Self::Array(ArrayType::new(t, prec))
     }
     #[allow(dead_code)]
-    fn into(from: Type, to: Repr) -> Self {
+    pub fn into(from: Type, to: Repr) -> Self {
         Self::Into(IntoType::new(from, to))
-    }
-
-    pub fn parse<S: AsRef<str>>(s: S) -> anyhow::Result<Self> {
-        let s = s.as_ref();
-
-        match OptionType::parse(s) {
-            Ok(k) => return Ok(Self::Optional(k)),
-            Err(_) => {} // Err(e) => println!("\"{s}\" is not OptionType {e}"),
-        }
-
-        match ArrayType::parse(s) {
-            Ok(k) => return Ok(Self::Array(k)),
-            Err(_) => {} // Err(e) => println!("\"{s}\" is not ArrayType {e}"),
-        }
-
-        match IntoType::parse(s) {
-            Ok(k) => return Ok(Self::Into(k)),
-            Err(_) => {} // Err(e) => println!("\"{s}\" is not IntoType {e}"),
-        }
-
-        match PrimitiveType::parse(s) {
-            Ok(k) => return Ok(Self::Primitive(k)),
-            Err(_) => {} // Err(e) => println!("\"{s}\" is not PrimitiveType {e}"),
-        }
-
-        return Err(anyhow!("could not generate type"));
     }
 }
 
@@ -281,6 +172,7 @@ impl Display for Type {
             Self::Model(m) => write!(f, "{m}")?,
             Self::Enum(e) => write!(f, "{e}")?,
             Self::Undetermined(u) => write!(f, "{u}")?,
+            Self::Null => write!(f, "Null")?,
         }
 
         return Ok(());
@@ -324,9 +216,10 @@ impl Debug for Type {
             Self::Optional(o) => write!(f, "{o:?}")?,
             Self::Array(a) => write!(f, "{a:?}")?,
             Self::Into(i) => write!(f, "{i:?}")?,
-            Self::Model(m) => write!(f, "model: {m}")?,
-            Self::Enum(e) => write!(f, "model: {e}")?,
-            Self::Undetermined(u) => write!(f, "{u}")?,
+            Self::Model(m) => write!(f, "Model: {m}")?,
+            Self::Enum(e) => write!(f, "Enum: {e}")?,
+            Self::Undetermined(u) => write!(f, "Undetermined: {u}")?,
+            Self::Null => write!(f, "Null")?,
         }
 
         return Ok(());
