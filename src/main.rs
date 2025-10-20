@@ -166,6 +166,13 @@ impl Definitons {
                 param.determine_model(&model_names);
             }
         }
+
+        for (_, model) in self.end_points.iter_mut() {
+            for (_, param) in model.params.iter_mut() {
+                param.determine_enum(&enum_names);
+                param.determine_model(&model_names);
+            }
+        }
     }
 
     fn get_definitions<P: AsRef<Path>>(p: P) -> Result<Self> {
@@ -230,7 +237,7 @@ impl Definitons {
                         x => unreachable!("{x} is not a supported method"),
                     }
 
-                    end_point.url = iter.next().unwrap().to_string();
+                    end_point.url = iter.next().unwrap().as_str().to_string();
                     if let Some(o) = iter.next() {
                         end_point.return_type = handle_type(o);
                     }
@@ -256,10 +263,10 @@ fn main() -> Result<()> {
     let defs = Definitons::get_definitions("ex.dsl")?;
     let fast_api = python::FastApi::new();
     for (name, model) in &defs.models {
-        println!("{}", fast_api.handle_model(name, model, &defs))
+        println!("{}\n", fast_api.handle_model(name, model, &defs))
     }
-    for (name, model) in &defs.models {
-        println!("{}", fast_api.handle_endpoint(name, model, &defs))
+    for (name, endpoint) in &defs.end_points {
+        println!("{}\n", fast_api.handle_endpoint(name, endpoint, &defs))
     }
     return Ok(());
 }
@@ -270,6 +277,7 @@ mod test {
 
     #[test]
     fn type_test() -> anyhow::Result<()> {
+        const PRIMITIVES: &[&str] = &["int", "uint", "float", "string"];
         let matches = &[
             ("int", Type::int(None)),
             ("int_32", Type::int(Some(32))),

@@ -1,18 +1,27 @@
+use std::fmt::format;
+
 use crate::{
     Definitons, EndPoint, Generator, Model, handle_type,
     types::{PrimitiveType, Type},
 };
 
+pub enum EnumHandling {
+    ToEnum,
+    ToString,
+    ToClass,
+}
+
+// NOTE: fast api handles datetime convertion so you can just kinda ignore it
 pub struct FastApi {
-    app_name: String,
-    generate_enums: bool,
+    pub app_name: String,
+    pub enum_handling: EnumHandling,
 }
 
 impl FastApi {
     pub fn new() -> Self {
         return Self {
             app_name: "app".to_string(),
-            generate_enums: false,
+            enum_handling: EnumHandling::ToEnum,
         };
     }
 
@@ -34,7 +43,21 @@ impl FastApi {
             Type::Array(a) => format!("List[{}]", self.handle_type(defs, &a.ty)),
             Type::Into(i) => format!("{}", self.handle_type(defs, &i.from)),
             Type::Model(m) => format!("{m}",),
-            Type::Enum(e) => format!("{e}",),
+            Type::Enum(e) => match self.enum_handling {
+                EnumHandling::ToClass => {
+                    format!("{e}",)
+                }
+                EnumHandling::ToString => self.handle_type(defs, &Type::string(None)),
+                EnumHandling::ToEnum => {
+                    let mut poss = defs.enums.get(e).unwrap().params.iter();
+                    let mut s = format!("{}", poss.next().unwrap());
+                    for param in poss {
+                        s += format!(" | {param}").as_str();
+                    }
+
+                    s
+                }
+            },
             Type::Undetermined(u) => panic!("Undetermined: {u:?} reached a FastApi generator",),
             Type::Null => format!("None",),
         };
@@ -52,7 +75,7 @@ impl Generator for FastApi {
     }
 
     fn handle_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> String {
-        let mut code = format!("@{}.{}({})", self.app_name, endpoint.method, endpoint.url);
+        let mut code = format!("@{}.{}({})\n", self.app_name, endpoint.method, endpoint.url);
         code += format!("def {}(", name,).as_str();
         for (name, ty) in &endpoint.params {
             code += format!("{name}: {}, ", self.handle_type(defs, &ty)).as_str();
@@ -63,6 +86,7 @@ impl Generator for FastApi {
         for (name, _) in &endpoint.params {
             code += format!("{name}, ").as_str();
         }
+        code += ")";
 
         return code;
     }
