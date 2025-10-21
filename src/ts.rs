@@ -1,22 +1,47 @@
+use std::fmt::Display;
+
 use crate::{
-    dsl::{Definitons, EndPoint, EndPointParamKind, Generator, Model},
+    dsl::{Definitons, EndPoint, EndPointParamKind, Enum, Generator, Model},
     types::{PrimitiveType, Repr, Type},
 };
 
-use clap::Parser;
+use clap::{Parser, ValueEnum};
+
+#[derive(ValueEnum, Debug, Default, Clone, PartialEq)]
+#[value(rename_all = "snake_case")]
+pub enum EnumHandling {
+    ToEnum,
+    ToString,
+    ToAlgebraic,
+    #[default]
+    ToType,
+}
+
+impl Display for EnumHandling {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::ToEnum => "to_enum",
+                Self::ToString => "to_string",
+                Self::ToAlgebraic => "to_algebraic",
+                Self::ToType => "to_type",
+            }
+        )
+    }
+}
 
 #[derive(Parser, Clone)]
 pub struct TS {
     #[arg(short, long, default_value_t = true)]
     result: bool,
+
+    #[arg(short, long, default_value_t = EnumHandling::ToType)]
+    type_enum: EnumHandling,
 }
 
 impl TS {
-    #[allow(lint)]
-    pub fn new() -> Self {
-        return Self { result: true };
-    }
-
     fn handle_primitive(&self, p: &PrimitiveType) -> String {
         use PrimitiveType as PT;
         return match p {
@@ -33,6 +58,16 @@ impl TS {
         .to_string();
     }
 
+    fn generate_enum_algebra(&self, e: &Enum) -> String {
+        let mut poss = e.params.iter();
+        let mut s = format!("{}", poss.next().unwrap());
+        for param in poss {
+            s += format!(" | {param}").as_str();
+        }
+
+        s
+    }
+
     fn handle_type_signature(&self, defs: &Definitons, ty: &Type) -> String {
         return match ty {
             Type::Primitive(p) => self.handle_primitive(p),
@@ -40,15 +75,11 @@ impl TS {
             Type::Array(a) => format!("{}[]", self.handle_type_signature(defs, &a.ty)),
             Type::Into(i) => format!("{}", self.handle_repr(&i.into)),
             Type::Model(m) => format!("{m}",),
-            Type::Enum(e) => {
-                let mut poss = defs.enums.get(e).unwrap().params.iter();
-                let mut s = format!("{}", poss.next().unwrap());
-                for param in poss {
-                    s += format!(" | {param}").as_str();
-                }
-
-                s
-            }
+            Type::Enum(e) => match self.type_enum {
+                EnumHandling::ToType | EnumHandling::ToEnum => format!("{e}"),
+                EnumHandling::ToAlgebraic => self.generate_enum_algebra(defs.enums.get(e).unwrap()),
+                EnumHandling::ToString => self.handle_type_signature(defs, &Type::string(None)),
+            },
             Type::Undetermined(u) => panic!("Undetermined: {u:?} reached a React generator",),
             Type::Null => format!("null",),
         };
@@ -103,6 +134,20 @@ impl Generator for TS {
         code += "\n};";
 
         return code;
+    }
+
+    fn handle_enum(&self, name: &str, e: &crate::dsl::Enum) -> String {
+        match self.type_enum {
+            EnumHandling::ToEnum => {
+                todo!();
+            }
+            EnumHandling::ToType => {
+                return format!("type {name} = {}", self.generate_enum_algebra(e));
+            }
+            EnumHandling::ToString | EnumHandling::ToAlgebraic => {
+                return String::new();
+            }
+        }
     }
 
     fn handle_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> String {

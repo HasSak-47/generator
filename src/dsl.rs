@@ -283,6 +283,7 @@ pub trait Generator {
     }
 
     fn handle_model(&self, name: &str, model: &Model, defs: &Definitons) -> String;
+    fn handle_enum(&self, name: &str, model: &Enum) -> String;
     fn handle_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> String;
 }
 

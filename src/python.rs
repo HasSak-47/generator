@@ -78,6 +78,10 @@ impl Generator for FastApi {
         return code;
     }
 
+    fn handle_enum(&self, name: &str, model: &crate::dsl::Enum) -> String {
+        todo!();
+    }
+
     fn handle_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> String {
         let mut code = format!("@{}.{}({})\n", self.app_name, endpoint.method, endpoint.url);
         code += format!("def {}(", name,).as_str();

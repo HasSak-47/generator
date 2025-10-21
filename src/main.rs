@@ -35,6 +35,12 @@ fn main() -> Result<()> {
         Generators::PythonFastApi(fastapi) => Box::new(fastapi),
     };
 
+    println!("{}", generator.generate_header());
+
+    for (name, e) in &defs.enums {
+        println!("{}", generator.handle_enum(name, e))
+    }
+
     for (name, model) in &defs.models {
         println!("{}", generator.handle_model(name, model, &defs))
     }
