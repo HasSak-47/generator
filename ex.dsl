@@ -40,4 +40,4 @@ update_product(id: int, product: Product) @put "/product/{id}" -> Product
 get_summary(status: Status?) @get "/sales/summary" -> SaleSummary
 
 # End Time
-get_summary() @post "/end_time"
+end_time() @post "/end_time"

@@ -2,14 +2,12 @@ use std::fmt::{Debug, Display};
 
 use anyhow::anyhow;
 
-#[derive(Default, PartialEq)]
+#[derive(PartialEq)]
 pub enum PrimitiveType {
     Integer(Option<usize>),  // int_x
     Unsigned(Option<usize>), // uint_x
     Float(Option<usize>),    // float_x
     String(Option<usize>),   // string_x
-    #[default]
-    Null,
 }
 
 #[derive(PartialEq)]
@@ -78,7 +76,7 @@ pub enum Type {
 
 impl Default for Type {
     fn default() -> Self {
-        return Self::Primitive(PrimitiveType::Null);
+        return Self::Null;
     }
 }
 
@@ -152,7 +150,6 @@ impl Display for PrimitiveType {
             Self::Unsigned(p) => write!(f, "uint{}", prec(p))?,
             Self::Float(p) => write!(f, "float{}", prec(p))?,
             Self::String(p) => write!(f, "string{}", prec(p))?,
-            Self::Null => write!(f, "null")?,
         }
 
         return Ok(());

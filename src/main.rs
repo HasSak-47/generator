@@ -58,6 +58,31 @@ struct EndPoint {
     return_type: Type,
 }
 
+#[derive(Debug, Default)]
+pub enum EndPointParamKind {
+    #[default]
+    Body,
+    Path,
+    Query,
+}
+
+impl EndPoint {
+    fn get_param_type<S: AsRef<str>>(&self, name: S) -> Option<EndPointParamKind> {
+        let name = name.as_ref();
+        let (name, ty) = self.params.iter().find(|p| p.0 == name)?;
+        match &ty {
+            Type::Enum(_) | Type::Model(_) => return Some(EndPointParamKind::Body),
+            _ => {
+                if self.url.contains(format!("{{{name}}}").as_str()) {
+                    return Some(EndPointParamKind::Path);
+                } else {
+                    return Some(EndPointParamKind::Query);
+                }
+            }
+        }
+    }
+}
+
 #[derive(Debug)]
 struct Definitons {
     models: HashMap<String, Model>,
@@ -167,11 +192,13 @@ impl Definitons {
             }
         }
 
-        for (_, model) in self.end_points.iter_mut() {
-            for (_, param) in model.params.iter_mut() {
+        for (_, endpoint) in self.end_points.iter_mut() {
+            for (_, param) in endpoint.params.iter_mut() {
                 param.determine_enum(&enum_names);
                 param.determine_model(&model_names);
             }
+            endpoint.return_type.determine_enum(&enum_names);
+            endpoint.return_type.determine_model(&model_names);
         }
     }
 

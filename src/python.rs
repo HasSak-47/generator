@@ -31,7 +31,6 @@ impl FastApi {
             PT::Integer(_) | PT::Unsigned(_) => "int",
             PT::Float(_) => "float",
             PT::String(_) => "str",
-            PT::Null => "None",
         }
         .to_string();
     }
