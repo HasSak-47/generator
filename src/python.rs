@@ -1,7 +1,5 @@
-use std::fmt::format;
-
 use crate::{
-    Definitons, EndPoint, Generator, Model, handle_type,
+    dsl::{Definitons, EndPoint, Generator, Model},
     types::{PrimitiveType, Type},
 };
 

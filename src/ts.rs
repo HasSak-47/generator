@@ -1,5 +1,5 @@
 use crate::{
-    Definitons, EndPoint, EndPointParamKind, Generator, Model,
+    dsl::{Definitons, EndPoint, EndPointParamKind, Generator, Model},
     types::{PrimitiveType, Repr, Type},
 };
 
@@ -174,7 +174,7 @@ impl Generator for React {
         .as_str();
 
         if let Type::Null = &endpoint.return_type {
-                code += "\treturn Result.Ok<null, Error>(null);\n";
+            code += "\treturn Result.Ok<null, Error>(null);\n";
         } else {
             code += format!(
                 "\treturn Result.Ok<{}, Error>((await response.json()) as {});\n",
