@@ -17,7 +17,7 @@ end_point = {
 operation_mark = ${ "@" ~ operation }
 operation      =  { "get" | "post" | "put" }
 
-path = { string }
+path = ${ "\"" ~ inner ~ "\""}
 
 member_field   = ${ name ~ " "* ~ ":" ~ " "* ~ ty }
 ty             = ${ (into_type | primitive_type | null_type | complex_type) ~ weird_mark* }

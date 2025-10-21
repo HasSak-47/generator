@@ -237,7 +237,14 @@ impl Definitons {
                         x => unreachable!("{x} is not a supported method"),
                     }
 
-                    end_point.url = iter.next().unwrap().as_str().to_string();
+                    end_point.url = iter
+                        .next()
+                        .unwrap()
+                        .into_inner()
+                        .next()
+                        .unwrap()
+                        .as_str()
+                        .to_string();
                     if let Some(o) = iter.next() {
                         end_point.return_type = handle_type(o);
                     }
@@ -261,12 +268,12 @@ trait Generator {
 
 fn main() -> Result<()> {
     let defs = Definitons::get_definitions("ex.dsl")?;
-    let fast_api = python::FastApi::new();
+    let generator = ts::React::new();
     for (name, model) in &defs.models {
-        println!("{}\n", fast_api.handle_model(name, model, &defs))
+        println!("{}\n", generator.handle_model(name, model, &defs))
     }
     for (name, endpoint) in &defs.end_points {
-        println!("{}\n", fast_api.handle_endpoint(name, endpoint, &defs))
+        println!("{}\n", generator.handle_endpoint(name, endpoint, &defs))
     }
     return Ok(());
 }
