@@ -17,6 +17,12 @@ struct Cli {
     #[arg(default_value_os_t = {PathBuf::from("./definitions.defs")})]
     pub definitions: PathBuf,
 
+    #[arg(short, long, default_value_t = false)]
+    pub split: bool,
+
+    #[arg(short, long, default_value_os_t = {PathBuf::from("./src/generated")})]
+    pub path: PathBuf,
+
     #[command(subcommand)]
     pub generator: Generators,
 }
@@ -30,23 +36,24 @@ enum Generators {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     let defs = Definitons::get_definitions(cli.definitions)?;
-    let generator: Box<dyn Generator> = match cli.generator {
-        Generators::Typescript(ts) => Box::new(ts),
-        Generators::PythonFastApi(fastapi) => Box::new(fastapi),
+    let (generator, extension): (Box<dyn Generator>, &str) = match cli.generator {
+        Generators::Typescript(ts) => (Box::new(ts), "ts"),
+        Generators::PythonFastApi(fastapi) => (Box::new(fastapi), "py"),
     };
 
-    println!("{}", generator.generate_header());
+    println!("{}\n", generator.generate_endpoint_header());
+    println!("{}\n", generator.generate_model_header());
 
     for (name, e) in &defs.enums {
-        println!("{}", generator.handle_enum(name, e))
+        println!("{}\n", generator.handle_enum(name, e))
     }
 
     for (name, model) in &defs.models {
-        println!("{}", generator.handle_model(name, model, &defs))
+        println!("{}\n", generator.handle_model(name, model, &defs))
     }
 
     for (name, end_points) in &defs.end_points {
-        println!("{}", generator.handle_endpoint(name, end_points, &defs))
+        println!("{}\n", generator.handle_endpoint(name, end_points, &defs))
     }
 
     return Ok(());

@@ -165,6 +165,14 @@ impl TS {
 }
 
 impl Generator for TS {
+    fn generate_endpoint_header(&self) -> String {
+        if let ErrorHandling::Result = self.error_handling {
+            return "import Result from './utils/result'".to_string();
+        } else {
+            return String::new();
+        }
+    }
+
     fn handle_model(&self, name: &str, model: &Model, defs: &Definitons) -> String {
         let mut code = format!("type {} = {{", name);
         for (name, ty) in &model.params {

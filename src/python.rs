@@ -79,6 +79,9 @@ impl Generator for FastApi {
     }
 
     fn handle_enum(&self, name: &str, model: &crate::dsl::Enum) -> String {
+        if let EnumHandling::ToString = self.enum_handling {
+            return String::new();
+        }
         todo!();
     }
 
