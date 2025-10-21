@@ -3,11 +3,18 @@ use crate::{
     types::{PrimitiveType, Repr, Type},
 };
 
-pub struct React {}
+use clap::Parser;
 
-impl React {
+#[derive(Parser, Clone)]
+pub struct TS {
+    #[arg(short, long, default_value_t = true)]
+    result: bool,
+}
+
+impl TS {
+    #[allow(lint)]
     pub fn new() -> Self {
-        return Self {};
+        return Self { result: true };
     }
 
     fn handle_primitive(&self, p: &PrimitiveType) -> String {
@@ -87,7 +94,7 @@ impl React {
     }
 }
 
-impl Generator for React {
+impl Generator for TS {
     fn handle_model(&self, name: &str, model: &Model, defs: &Definitons) -> String {
         let mut code = format!("type {} = {{", name);
         for (name, ty) in &model.params {

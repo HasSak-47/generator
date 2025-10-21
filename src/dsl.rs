@@ -278,6 +278,10 @@ impl Definitons {
 }
 
 pub trait Generator {
+    fn generate_header(&self) -> String {
+        return String::new();
+    }
+
     fn handle_model(&self, name: &str, model: &Model, defs: &Definitons) -> String;
     fn handle_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> String;
 }

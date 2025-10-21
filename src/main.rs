@@ -3,18 +3,45 @@ mod python;
 mod ts;
 mod types;
 
-use anyhow::Result;
-
 use dsl::{Definitons, Generator};
 
+use std::path::PathBuf;
+
+use anyhow::Result;
+use clap::{Parser, Subcommand};
+
+use crate::{python::FastApi, ts::TS};
+
+#[derive(Parser)]
+struct Cli {
+    #[arg(default_value_os_t = {PathBuf::from("./definitions.defs")})]
+    pub definitions: PathBuf,
+
+    #[command(subcommand)]
+    pub generator: Generators,
+}
+
+#[derive(Subcommand, Clone)]
+enum Generators {
+    PythonFastApi(FastApi),
+    Typescript(TS),
+}
+
 fn main() -> Result<()> {
-    let defs = Definitons::get_definitions("ex.dsl")?;
-    let generator = ts::React::new();
+    let cli = Cli::parse();
+    let defs = Definitons::get_definitions(cli.definitions)?;
+    let generator: Box<dyn Generator> = match cli.generator {
+        Generators::Typescript(ts) => Box::new(ts),
+        Generators::PythonFastApi(fastapi) => Box::new(fastapi),
+    };
+
     for (name, model) in &defs.models {
-        println!("{}\n", generator.handle_model(name, model, &defs))
+        println!("{}", generator.handle_model(name, model, &defs))
     }
-    for (name, endpoint) in &defs.end_points {
-        println!("{}\n", generator.handle_endpoint(name, endpoint, &defs))
+
+    for (name, end_points) in &defs.end_points {
+        println!("{}", generator.handle_endpoint(name, end_points, &defs))
     }
+
     return Ok(());
 }

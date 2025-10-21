@@ -3,15 +3,22 @@ use crate::{
     types::{PrimitiveType, Type},
 };
 
+use clap::{Parser, ValueEnum};
+
+#[derive(ValueEnum, Debug, Default, Clone, PartialEq)]
+#[value(rename_all = "snake_case")]
 pub enum EnumHandling {
     ToEnum,
+    #[default]
     ToString,
     ToClass,
 }
 
 // NOTE: fast api handles datetime convertion so you can just kinda ignore it
+#[derive(Parser, Clone)]
 pub struct FastApi {
     pub app_name: String,
+    #[arg(value_enum)]
     pub enum_handling: EnumHandling,
 }
 
