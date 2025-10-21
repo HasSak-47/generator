@@ -32,10 +32,33 @@ impl Display for EnumHandling {
     }
 }
 
+#[derive(ValueEnum, Debug, Default, Clone, PartialEq)]
+#[value(rename_all = "snake_case")]
+pub enum ErrorHandling {
+    Result,
+    Pair,
+    #[default]
+    Raise,
+}
+
+impl Display for ErrorHandling {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Result => "result",
+                Self::Pair => "pair",
+                Self::Raise => "raise",
+            }
+        )
+    }
+}
+
 #[derive(Parser, Clone)]
 pub struct TS {
-    #[arg(short, long, default_value_t = true)]
-    result: bool,
+    #[arg(short, long, default_value_t = ErrorHandling::Raise)]
+    error_handling: ErrorHandling,
 
     #[arg(short, long, default_value_t = EnumHandling::ToType)]
     type_enum: EnumHandling,
@@ -122,6 +145,22 @@ impl TS {
             }
             _ => format!("_{name}"),
         }
+    }
+
+    fn handle_result(&self, ok: String, err: String, ty: String) -> String {
+        let (do_error, do_ok) = match self.error_handling {
+            ErrorHandling::Result => (
+                format!("return Result<{ty}, Error>({err});"),
+                format!("return Result<{ty}, Error>({ok});"),
+            ),
+            ErrorHandling::Pair => (
+                format!("return [{err}, null]);"),
+                format!("return [{ok}, null]"),
+            ),
+            ErrorHandling::Raise => (format!("raise {err};"), format!("return {ty};")),
+        };
+
+        return format!("\tif(!response.ok)\n\t\t{do_error}\n\t{do_ok}");
     }
 }
 
@@ -219,22 +258,17 @@ impl Generator for TS {
         }
 
         let return_type = self.handle_type_signature(defs, &endpoint.return_type);
-        code += format!(
-            "\tif(!response.ok)\n\t\treturn Result.Err<{}, Error>(new Error(response.statusText)) \t\t\n",
-            return_type,
-        )
-        .as_str();
 
-        if let Type::Null = &endpoint.return_type {
-            code += "\treturn Result.Ok<null, Error>(null);\n";
+        let ok = if let Type::Null = endpoint.return_type {
+            "null".to_string()
         } else {
-            code += format!(
-                "\treturn Result.Ok<{}, Error>((await response.json()) as {});\n",
-                return_type, return_type,
-            )
-            .as_str();
-        }
-        code += "}";
+            format!("(await response.json()) as {}", return_type)
+        };
+        let error = "new Error(response.statusText)".to_string();
+
+        code += self.handle_result(ok, error, return_type).as_str();
+
+        code += "\n}";
 
         return code;
     }
