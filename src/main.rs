@@ -20,7 +20,7 @@ struct Cli {
     #[arg(short, long, default_value_t = false)]
     pub split: bool,
 
-    #[arg(short, long)]
+    #[arg(short = 'P', long)]
     pub prefix: Option<String>,
 
     #[arg(short, long, default_value_os_t = {PathBuf::from("./src/generated")})]
@@ -107,7 +107,7 @@ fn main() -> Result<()> {
         }
 
         let mut path = cli.path.clone();
-        path.push(format!("{prefix}_generted"));
+        path.push(format!("{prefix}generted"));
         path.set_extension(extension);
         let mut file = File::create(path)?;
         file.write_all(code.as_bytes())?;

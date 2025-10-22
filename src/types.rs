@@ -1,3 +1,4 @@
+use anyhow::{Result, anyhow};
 use std::fmt::{Debug, Display};
 
 #[derive(PartialEq)]
@@ -124,28 +125,34 @@ impl Type {
         }
     }
 
-    fn determine<F: Fn(String) -> Type>(&mut self, models: &Vec<String>, builder: F) {
+    fn determine<F: Fn(String) -> Type>(&mut self, models: &Vec<String>, builder: F) -> Result<()> {
         match self {
             Self::Array(arr) => {
-                arr.ty.determine(models, builder);
+                return arr.ty.determine(models, builder);
             }
             Self::Optional(opt) => {
-                opt.ty.determine(models, builder);
+                return opt.ty.determine(models, builder);
             }
             Self::Undetermined(name) => {
                 if models.contains(&name) {
                     *self = builder(name.clone());
+                } else {
+                    return Err(anyhow!(
+                        "unknown Model/Enum found: {name} is not in {models:?}"
+                    ));
                 }
             }
             _ => {}
         }
+
+        return Ok(());
     }
 
-    pub fn determine_enum(&mut self, enums: &Vec<String>) {
+    pub fn determine_enum(&mut self, enums: &Vec<String>) -> Result<()> {
         return self.determine(enums, |s| Self::Enum(s));
     }
 
-    pub fn determine_model(&mut self, models: &Vec<String>) {
+    pub fn determine_model(&mut self, models: &Vec<String>) -> Result<()> {
         return self.determine(models, |s| Self::Model(s));
     }
 }

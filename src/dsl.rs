@@ -85,7 +85,6 @@ pub struct LangParser {}
 
 fn handle_primitive_type<'a>(p: Pair<'a, Rule>) -> Type {
     let mut iter = p.into_inner();
-    println!("{iter:?}");
     let kind = iter.next().unwrap();
     match kind.as_rule() {
         Rule::pprec => {
@@ -183,18 +182,27 @@ impl Definitons {
         let enum_names: Vec<String> = self.enums.keys().map(|k| k.clone()).collect();
         for (_, model) in self.models.iter_mut() {
             for (_, param) in model.params.iter_mut() {
-                param.determine_enum(&enum_names);
-                param.determine_model(&model_names);
+                let found = param.determine_enum(&enum_names).is_ok()
+                    | param.determine_model(&model_names).is_ok();
+                if !found {
+                    panic!("could not expand type: {self:?}");
+                }
             }
         }
 
         for (_, endpoint) in self.end_points.iter_mut() {
             for (_, param) in endpoint.params.iter_mut() {
-                param.determine_enum(&enum_names);
-                param.determine_model(&model_names);
+                let found = param.determine_enum(&enum_names).is_ok()
+                    | param.determine_model(&model_names).is_ok();
+                if !found {
+                    panic!("could not expand type: {self:?}");
+                }
             }
-            endpoint.return_type.determine_enum(&enum_names);
-            endpoint.return_type.determine_model(&model_names);
+            let found = endpoint.return_type.determine_enum(&enum_names).is_ok()
+                | endpoint.return_type.determine_model(&model_names).is_ok();
+            if !found {
+                panic!("could not expand type: {self:?}");
+            }
         }
     }
 

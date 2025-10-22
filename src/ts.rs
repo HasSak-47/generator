@@ -92,18 +92,42 @@ impl TS {
         .to_string()
     }
 
-    fn handle_type_signature(&self, defs: &Definitons, ty: &Type) -> String {
+    fn handle_singature_for_model(&self, defs: &Definitons, ty: &Type) -> String {
         return match ty {
             Type::Primitive(p) => self.handle_primitive(p),
             Type::Repr(r) => self.handle_repr_signature(r),
-            Type::Optional(o) => format!("{} | null", self.handle_type_signature(defs, &o.ty)),
-            Type::Array(a) => format!("{}[]", self.handle_type_signature(defs, &a.ty)),
+            Type::Optional(o) => format!("{} | null", self.handle_singature_for_model(defs, &o.ty)),
+            Type::Array(a) => format!("{}[]", self.handle_singature_for_model(defs, &a.ty)),
             Type::Into(i) => format!("{}", self.handle_repr_signature(&i.into)),
             Type::Model(m) => format!("{m}",),
             Type::Enum(e) => match self.type_enum {
                 EnumHandling::ToType | EnumHandling::ToEnum => format!("{e}"),
                 EnumHandling::ToAlgebraic => self.generate_enum_algebra(defs.enums.get(e).unwrap()),
-                EnumHandling::ToString => self.handle_type_signature(defs, &Type::string(None)),
+                EnumHandling::ToString => {
+                    self.handle_singature_for_model(defs, &Type::string(None))
+                }
+            },
+            Type::Undetermined(u) => panic!("Undetermined: {u:?} reached a TS generator",),
+            Type::Null => format!("null",),
+        };
+    }
+
+    fn handle_singature_for_request(&self, defs: &Definitons, ty: &Type) -> String {
+        return match ty {
+            Type::Primitive(p) => self.handle_primitive(p),
+            Type::Repr(r) => self.handle_repr_signature(r),
+            Type::Optional(o) => {
+                format!("{} | null", self.handle_singature_for_request(defs, &o.ty))
+            }
+            Type::Array(a) => format!("{}[]", self.handle_singature_for_request(defs, &a.ty)),
+            Type::Into(i) => format!("{}", self.handle_singature_for_request(defs, &i.from)),
+            Type::Model(m) => format!("{m}",),
+            Type::Enum(e) => match self.type_enum {
+                EnumHandling::ToType | EnumHandling::ToEnum => format!("{e}"),
+                EnumHandling::ToAlgebraic => self.generate_enum_algebra(defs.enums.get(e).unwrap()),
+                EnumHandling::ToString => {
+                    self.handle_singature_for_model(defs, &Type::string(None))
+                }
             },
             Type::Undetermined(u) => panic!("Undetermined: {u:?} reached a TS generator",),
             Type::Null => format!("null",),
@@ -149,20 +173,34 @@ impl TS {
         }
     }
 
-    fn handle_result(&self, ok: String, err: String, ty: String) -> String {
-        let (do_error, do_ok) = match self.error_handling {
-            ErrorHandling::Result => (
-                format!("return Result.Err<{ty}, Error>({err});"),
-                format!("return Result.Ok<{ty}, Error>({ok});"),
-            ),
-            ErrorHandling::Pair => (
-                format!("return [{err}, null]);"),
-                format!("return [{ok}, null]"),
-            ),
-            ErrorHandling::Raise => (format!("raise {err};"), format!("return {ty};")),
+    fn handle_error(&self, err: &String, ty: &String) -> String {
+        return match self.error_handling {
+            ErrorHandling::Result => format!("return Result.Err<{ty}, Error>({err});"),
+            ErrorHandling::Pair => format!("return [{err}, null]);"),
+            ErrorHandling::Raise => format!("raise {err};"),
         };
+    }
 
-        return format!("\tif(!response.ok)\n\t\t{do_error}\n\t{do_ok}");
+    fn handle_ok(&self, ok: &String, ty: &String) -> String {
+        return match self.error_handling {
+            ErrorHandling::Result => format!("return Result.Ok<{ty}, Error>({ok});"),
+            ErrorHandling::Pair => format!("return [{ok}, null]"),
+            ErrorHandling::Raise => format!("return {ty};"),
+        };
+    }
+
+    fn validate_param(&self, name: &String, expected_type: &Type, return_type: &String) -> String {
+        let mut code = String::new();
+        code += format!(
+            "\tif(j.{name} === undefined)\n\t\t{}\n",
+            self.handle_error(
+                &format!("new Error('field {name} is undefined')"),
+                &return_type,
+            )
+        )
+        .as_str();
+
+        return code;
     }
 }
 
@@ -178,7 +216,11 @@ impl Generator for TS {
     fn handle_model(&self, name: &str, model: &Model, defs: &Definitons) -> String {
         let mut code = format!("type {} = {{", name);
         for (name, ty) in &model.params {
-            code += format!("\n\t{name}: {};", self.handle_type_signature(defs, &ty)).as_str();
+            code += format!(
+                "\n\t{name}: {};",
+                self.handle_singature_for_model(defs, &ty)
+            )
+            .as_str();
         }
         code += "\n};";
 
@@ -203,9 +245,11 @@ impl Generator for TS {
         let mut code = format!("export async function {}(", name);
         for (name, ty) in &endpoint.params {
             if ty.root_is_into() {
-                code += format!("_{name}: {}, ", self.handle_type_signature(defs, &ty)).as_str();
+                code +=
+                    format!("_{name}: {}, ", self.handle_singature_for_model(defs, &ty)).as_str();
             } else {
-                code += format!("{name}: {}, ", self.handle_type_signature(defs, &ty)).as_str();
+                code +=
+                    format!("{name}: {}, ", self.handle_singature_for_model(defs, &ty)).as_str();
             }
         }
         code += "){\n";
@@ -250,10 +294,10 @@ impl Generator for TS {
         if has_query {
             code += query.as_str();
             code += "\n";
-            code += format!("\tlet url = '{}';\n", endpoint.url.replace("{", "${")).as_str();
+            code += format!("\tlet url = `{}`;\n", endpoint.url.replace("{", "${")).as_str();
             code += "\turl = searchParams.size > 0 ? `${url}?${searchParams}` : url;\n";
         } else {
-            code += format!("\tlet url = '{}';\n", endpoint.url.replace("{", "${")).as_str();
+            code += format!("\tlet url = `{}`;\n", endpoint.url.replace("{", "${")).as_str();
         }
 
         if has_body {
@@ -273,18 +317,46 @@ impl Generator for TS {
             .as_str();
         }
 
-        let return_type = self.handle_type_signature(defs, &endpoint.return_type);
+        let return_type = self.handle_singature_for_model(defs, &endpoint.return_type);
 
-        let ok = if let Type::Null = endpoint.return_type {
-            "null".to_string()
-        } else {
-            format!("(await response.json()) as {}", return_type)
-        };
+        // request error
         let error = "new Error(response.statusText)".to_string();
 
-        code += self.handle_result(ok, error, return_type).as_str();
+        code += format!(
+            "\tif(!response.ok)\n\t\t{}\n",
+            self.handle_error(&error, &return_type)
+        )
+        .as_str();
 
-        code += "\n}";
+        if let Type::Null = endpoint.return_type {
+            code += "\n}";
+            return code;
+        }
+
+        code += "\tlet j = await response.json();\n";
+        match &endpoint.return_type {
+            Type::Model(m) => {
+                for (name, ty) in &defs.models[m].params {
+                    code += self.validate_param(name, ty, &return_type).as_str();
+                }
+            }
+            Type::Primitive(p) => {
+                let expected_type = self.handle_primitive(p);
+                code += format!(
+                    "\tif(typeof j != '{}')\n\t\t{}\n",
+                    expected_type,
+                    self.handle_error(
+                        &format!("new Error('response was not a {expected_type}')"),
+                        &return_type
+                    )
+                )
+                .as_str();
+                code += "\treturn j;\n";
+            }
+            _ => unreachable!(),
+        }
+
+        code += "}";
 
         return code;
     }
