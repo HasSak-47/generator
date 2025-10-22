@@ -241,6 +241,7 @@ impl Generator for TS {
     }
 
     fn handle_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> Code {
+        let mut code = Code::new();
         let mut function_decl = format!("export async function {}(", name);
         for (name, ty) in &endpoint.params {
             if ty.contains_into(defs) {
@@ -252,12 +253,12 @@ impl Generator for TS {
             }
         }
         function_decl += "){";
-        let mut code = Code::new_child(function_decl);
-        code.end_code = "}".to_string();
+        let mut function = code.add_child(function_decl);
+        function.end_code = "}".to_string();
 
         for (name, ty) in &endpoint.params {
             if ty.contains_into(defs) {
-                code.add_child(format!(
+                function.add_child(format!(
                     "const {name} = {};",
                     self.get_convertion_string(name, &ty, defs)
                 ));
@@ -274,11 +275,11 @@ impl Generator for TS {
             }
         }
 
-        code.add_child(format!("let url = `{}`;", endpoint.url.replace("{", "${")));
+        function.add_child(format!("let url = `{}`;", endpoint.url.replace("{", "${")));
 
         if has_query {
-            code.flat_add_code(query);
-            code.add_child(
+            function.flat_add_code(query);
+            function.add_child(
                 "url = searchParams.size > 0 ? `${url}?${searchParams}` : url;".to_string(),
             );
         }
@@ -307,37 +308,38 @@ impl Generator for TS {
             header_code.end_code = "}".to_string();
             header_code.add_child("'Content-Type': 'application/json'".to_string());
         }
-        code.add_code(fetch_code);
+        function.add_code(fetch_code);
 
         let return_type = self.handle_singature_for_model(defs, &endpoint.return_type);
 
         // request error
         let error = "new Error(response.statusText)".to_string();
 
-        let if_ = code.add_child("if(!response.ok)".to_string());
+        let if_ = function.add_child("if(!response.ok)".to_string());
         if_.add_child(self.handle_error(&error, &return_type));
 
         if let Type::Null = endpoint.return_type {
-            code.add_child(self.handle_ok(&"null".to_string(), &return_type));
+            function.add_child(self.handle_ok(&"null".to_string(), &return_type));
             return code;
         }
 
-        code.add_child("let j = await response.json();".to_string());
+        function.add_child("let j = await response.json();".to_string());
 
         match &endpoint.return_type {
             Type::Model(m) => {
                 for (name, ty) in &defs.models[m].params {
-                    code.add_code(self.validate_param(name, ty, &return_type));
+                    function.add_code(self.validate_param(name, ty, &return_type));
                 }
             }
             Type::Primitive(p) => {
                 let expected_type = self.handle_primitive(p);
-                let if_ = code.add_child(format!("if(typeof j != '{}')", self.handle_primitive(p)));
+                let if_ =
+                    function.add_child(format!("if(typeof j != '{}')", self.handle_primitive(p)));
                 if_.add_child(self.handle_error(
                     &format!("new Error('response was not a {expected_type}')"),
                     &return_type,
                 ));
-                code.add_child("return j;".to_string());
+                function.add_child("return j;".to_string());
             }
             _ => unreachable!(),
         }

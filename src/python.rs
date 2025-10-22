@@ -19,7 +19,7 @@ pub enum EnumHandling {
 #[derive(Parser, Clone)]
 pub struct FastApi {
     pub app_name: String,
-    #[arg(value_enum)]
+    #[arg(short, long, value_enum, default_value_t = EnumHandling::ToString)]
     pub enum_handling: EnumHandling,
 }
 
@@ -73,9 +73,10 @@ impl FastApi {
 
 impl Generator for FastApi {
     fn handle_model(&self, name: &str, model: &Model, defs: &Definitons) -> Code {
-        let mut code = Code::new_child(format!("class {}(BaseModel):", name));
+        let mut code = Code::new();
+        let class_def = code.add_child(format!("class {}(BaseModel):", name));
         for (name, ty) in &model.params {
-            code.add_child(format!("\n\t{name}: {}", self.handle_type(defs, &ty)));
+            class_def.add_child(format!("{name}: {}", self.handle_type(defs, &ty)));
         }
 
         return code;
@@ -90,20 +91,23 @@ impl Generator for FastApi {
     }
 
     fn handle_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> Code {
-        todo!();
-        let mut code = format!("@{}.{}({})\n", self.app_name, endpoint.method, endpoint.url);
-        code += format!("def {}(", name,).as_str();
+        let mut code = Code::new();
+        code.add_child(format!(
+            "@{}.{}('{}')",
+            self.app_name, endpoint.method, endpoint.url
+        ));
+        let function = code.add_child(format!("def endpoint_{}(", name,));
         for (name, ty) in &endpoint.params {
-            code += format!("{name}: {}, ", self.handle_type(defs, &ty)).as_str();
+            function.code += format!("{name}: {}, ", self.handle_type(defs, &ty)).as_str();
         }
-        code += "):\n\t";
+        function.code += "):";
 
-        code += format!("{}(", name,).as_str();
+        let call = function.add_child(format!("{}(", name,));
         for (name, _) in &endpoint.params {
-            code += format!("{name}, ").as_str();
+            call.code += format!("{name}, ").as_str();
         }
-        code += ")";
+        call.code += ")";
 
-        //return code;
+        return code;
     }
 }

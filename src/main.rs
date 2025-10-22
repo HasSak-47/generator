@@ -56,21 +56,21 @@ fn main() -> Result<()> {
         for (name, e) in &defs.enums {
             let g = generator.handle_enum(name, e);
             if g.has_code() {
-                model_code.add_code(g);
+                model_code.flat_add_code(g);
             }
         }
 
         for (name, model) in &defs.models {
             let g = generator.handle_model(name, model, &defs);
             if g.has_code() {
-                model_code.add_code(g);
+                model_code.flat_add_code(g);
             }
         }
 
         for (name, end_points) in &defs.end_points {
             let g = generator.handle_endpoint(name, end_points, &defs);
             if g.has_code() {
-                endpoint_code.add_code(g);
+                endpoint_code.flat_add_code(g);
             }
         }
 
@@ -99,21 +99,21 @@ fn main() -> Result<()> {
         for (name, e) in &defs.enums {
             let g = generator.handle_enum(name, e);
             if g.has_code() {
-                code.add_code(g);
+                code.flat_add_code(g);
             }
         }
 
         for (name, model) in &defs.models {
             let g = generator.handle_model(name, model, &defs);
             if g.has_code() {
-                code.add_code(g);
+                code.flat_add_code(g);
             }
         }
 
         for (name, end_points) in &defs.end_points {
             let g = generator.handle_endpoint(name, end_points, &defs);
             if g.has_code() {
-                code.add_code(g);
+                code.flat_add_code(g);
             }
         }
 
