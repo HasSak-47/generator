@@ -1,17 +1,20 @@
-model ServerState {
-    dname: string,
-    iname: string,
+model Foo {
+    name: string,
 
     down: bool,
     available: bool,
 }
 
-model UnitState {
-    dname: string,
-    iname: string,
-
-    servers: ServerState[],
+model Bar {
+    name: string,
+    servers: Foo[],
 }
 
-get_unit_state(iname: string) @get "/api/v1/unit/{iname}/state" -> UnitState
-get_unit_id(iname: string) @get "/api/v1/unit/{iname}/id" -> uint
+model Baz{
+    start: string as datetime,
+    end: string as datetime,
+}
+
+get_bar_state(name: string) @get "/api/v1/bar/{name}/state" -> Bar
+get_bar_id(name: string) @get "/api/v1/bar/{name}/id" -> uint
+get_bar_from_baz(baz: Baz) @get "/api/v1/bar/from/baz" -> Bar
