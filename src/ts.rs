@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 use crate::{
+    builder::*,
     dsl::{Definitons, EndPoint, EndPointParamKind, Enum, Generator, Model},
     types::{PrimitiveType, Repr, Type},
 };
