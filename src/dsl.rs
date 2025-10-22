@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Display, fs::File, io::Read, path::Path};
 
-use crate::types::*;
+use crate::{builder::Code, types::*};
 use anyhow::Result;
 use pest::{Parser, iterators::Pair};
 use pest_derive::Parser;
@@ -293,16 +293,16 @@ impl Definitons {
 }
 
 pub trait Generator {
-    fn generate_endpoint_header(&self) -> String {
-        return String::new();
+    fn generate_endpoint_header(&self) -> Code {
+        return Code::new();
     }
-    fn generate_model_header(&self) -> String {
-        return String::new();
+    fn generate_model_header(&self) -> Code {
+        return Code::new();
     }
 
-    fn handle_model(&self, name: &str, model: &Model, defs: &Definitons) -> String;
-    fn handle_enum(&self, name: &str, model: &Enum) -> String;
-    fn handle_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> String;
+    fn handle_model(&self, name: &str, model: &Model, defs: &Definitons) -> Code;
+    fn handle_enum(&self, name: &str, model: &Enum) -> Code;
+    fn handle_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> Code;
 }
 
 #[cfg(test)]

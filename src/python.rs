@@ -1,4 +1,5 @@
 use crate::{
+    builder::Code,
     dsl::{Definitons, EndPoint, Generator, Model},
     types::{PrimitiveType, Repr, Type},
 };
@@ -71,24 +72,25 @@ impl FastApi {
 }
 
 impl Generator for FastApi {
-    fn handle_model(&self, name: &str, model: &Model, defs: &Definitons) -> String {
-        let mut code = format!("class {}(BaseModel):", name);
+    fn handle_model(&self, name: &str, model: &Model, defs: &Definitons) -> Code {
+        let mut code = Code::new_child(format!("class {}(BaseModel):", name));
         for (name, ty) in &model.params {
-            code += format!("\n\t{name}: {}", self.handle_type(defs, &ty)).as_str();
+            code.add_child(format!("\n\t{name}: {}", self.handle_type(defs, &ty)));
         }
 
         return code;
     }
 
     #[allow(unused_variables)]
-    fn handle_enum(&self, name: &str, model: &crate::dsl::Enum) -> String {
+    fn handle_enum(&self, name: &str, model: &crate::dsl::Enum) -> Code {
         if let EnumHandling::ToString = self.enum_handling {
-            return String::new();
+            return Code::new();
         }
         todo!();
     }
 
-    fn handle_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> String {
+    fn handle_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> Code {
+        todo!();
         let mut code = format!("@{}.{}({})\n", self.app_name, endpoint.method, endpoint.url);
         code += format!("def {}(", name,).as_str();
         for (name, ty) in &endpoint.params {
@@ -102,6 +104,6 @@ impl Generator for FastApi {
         }
         code += ")";
 
-        return code;
+        //return code;
     }
 }

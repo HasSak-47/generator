@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use crate::{
-    builder::*,
+    builder::Code,
     dsl::{Definitons, EndPoint, EndPointParamKind, Enum, Generator, Model},
     types::{PrimitiveType, Repr, Type},
 };
@@ -135,13 +135,16 @@ impl TS {
         };
     }
 
-    fn get_query_string<S: AsRef<str>>(&self, name: S, ty: &Type) -> String {
+    fn get_query_code<S: AsRef<str>>(&self, name: S, ty: &Type) -> Code {
         let name = name.as_ref();
         match ty {
             Type::Optional(_) => {
-                format!("if({name} !== null)\n\t\tsearchParams.set('{name}', {name});",)
+                let mut c = Code::new_child(format!("if({name} !== null)"));
+                c.add_child(format!("searchParams.set('{name}', {name});"));
+
+                return c;
             }
-            _ => format!("searchParams.set('{name}', {name})"),
+            _ => Code::new_child(format!("searchParams.set('{name}', {name})")),
         }
     }
 
@@ -190,174 +193,148 @@ impl TS {
         };
     }
 
-    fn validate_param(&self, name: &String, expected_type: &Type, return_type: &String) -> String {
-        let mut code = String::new();
-        code += format!(
-            "\tif(j.{name} === undefined)\n\t\t{}\n",
-            self.handle_error(
-                &format!("new Error('field {name} is undefined')"),
-                &return_type,
-            )
-        )
-        .as_str();
+    fn validate_param(&self, name: &String, _expected_type: &Type, return_type: &String) -> Code {
+        let mut code = Code::new_child(format!("if(j.{name} === undefined)"));
+        code.add_child(self.handle_error(
+            &format!("new Error('field {name} is undefined')"),
+            &return_type,
+        ));
 
         return code;
     }
 }
 
 impl Generator for TS {
-    fn generate_endpoint_header(&self) -> String {
+    fn generate_endpoint_header(&self) -> Code {
         if let ErrorHandling::Result = self.error_handling {
-            return "import Result from '@/utils/result'\n".to_string();
+            return Code::new_child("import Result from '@/utils/result'".to_string());
         } else {
-            return String::new();
+            return Code::new();
         }
     }
 
-    fn handle_model(&self, name: &str, model: &Model, defs: &Definitons) -> String {
-        let mut code = format!("type {} = {{", name);
+    fn handle_model(&self, name: &str, model: &Model, defs: &Definitons) -> Code {
+        let mut code = Code::new_child(format!("type {} = {{", name));
         for (name, ty) in &model.params {
-            code += format!(
-                "\n\t{name}: {};",
+            code.add_child(format!(
+                "{name}: {};",
                 self.handle_singature_for_model(defs, &ty)
-            )
-            .as_str();
+            ));
         }
-        code += "\n};";
+        code.end_code = "};".to_string();
 
         return code;
     }
 
-    fn handle_enum(&self, name: &str, e: &crate::dsl::Enum) -> String {
+    fn handle_enum(&self, name: &str, e: &crate::dsl::Enum) -> Code {
         match self.type_enum {
             EnumHandling::ToEnum => {
-                todo!();
+                return Code::new();
             }
             EnumHandling::ToType => {
-                return format!("type {name} = {}", self.generate_enum_algebra(e));
+                return Code::new_child(format!("type {name} = {}", self.generate_enum_algebra(e)));
             }
             EnumHandling::ToString | EnumHandling::ToAlgebraic => {
-                return String::new();
+                return Code::new();
             }
         }
     }
 
-    fn handle_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> String {
-        let mut code = format!("export async function {}(", name);
+    fn handle_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> Code {
+        let mut function_decl = format!("export async function {}(", name);
         for (name, ty) in &endpoint.params {
             if ty.root_is_into() {
-                code +=
+                function_decl +=
                     format!("_{name}: {}, ", self.handle_singature_for_model(defs, &ty)).as_str();
             } else {
-                code +=
+                function_decl +=
                     format!("{name}: {}, ", self.handle_singature_for_model(defs, &ty)).as_str();
             }
         }
-        code += "){\n";
+        function_decl += "){";
+        let mut code = Code::new_child(function_decl);
+        code.end_code = "}".to_string();
+
         for (name, ty) in &endpoint.params {
             if ty.root_is_into() {
-                code += format!(
-                    "\tconst {name} = {};\n",
+                code.add_child(format!(
+                    "const {name} = {};",
                     self.get_convertion_string(name, &ty, defs)
-                )
-                .as_str();
+                ));
             }
         }
 
         let mut has_query = false;
-        let mut query = String::new();
-        query += "\n";
-        query += "\tconst searchParams = new URLSearchParams();\n";
-        query += "\n";
+        let mut query = Code::new_child("const searchParams = new URLSearchParams();".to_string());
 
         for (name, ty) in &endpoint.params {
             if let EndPointParamKind::Query = endpoint.get_param_type(&name).unwrap() {
-                query += format!("\t{}\n", self.get_query_string(name, &ty)).as_str();
+                query.add_code(self.get_query_code(name, &ty));
                 has_query = true;
             }
         }
 
+        code.add_child(format!("let url = `{}`;", endpoint.url.replace("{", "${")));
+
+        if has_query {
+            code.add_code(query);
+            code.add_child(
+                "url = searchParams.size > 0 ? `${url}?${searchParams}` : url;".to_string(),
+            );
+        }
+        let mut fetch_code = Code::new_child("let response = await fetch(url, {".to_string());
+        fetch_code.end_code = "});".to_string();
+        fetch_code.add_child(format!("method: '{}',", endpoint.method));
+
         let mut has_body = false;
-        let mut body = String::new();
-        body += "\t\tbody: JSON.stringify({\n";
 
         for (name, _) in &endpoint.params {
             if let EndPointParamKind::Body = endpoint.get_param_type(&name).unwrap() {
-                body += format!("\t\t\t{name}: {name}\n").as_str();
                 has_body = true;
+                break;
             }
         }
-        body += "\t\t}),\n";
-        body += "\t\theaders: {\n";
-        body += "\t\t\t'Content-Type': 'application/json',\n";
-        body += "\t\t},\n";
-
-        if has_query {
-            code += query.as_str();
-            code += "\n";
-            code += format!("\tlet url = `{}`;\n", endpoint.url.replace("{", "${")).as_str();
-            code += "\turl = searchParams.size > 0 ? `${url}?${searchParams}` : url;\n";
-        } else {
-            code += format!("\tlet url = `{}`;\n", endpoint.url.replace("{", "${")).as_str();
-        }
-
         if has_body {
-            code += format!(
-                "\tlet response = await fetch(url, {{
-\t\tmethod: '{}',
-{}
-\t}});\n",
-                endpoint.method, body,
-            )
-            .as_str();
-        } else {
-            code += format!(
-                "\tlet response = await fetch(url, {{ method: '{}' }});\n",
-                endpoint.method,
-            )
-            .as_str();
+            let body_code = fetch_code.add_child("body: JSON.stringify({".to_string());
+            for (name, _) in &endpoint.params {
+                if let EndPointParamKind::Body = endpoint.get_param_type(&name).unwrap() {
+                    body_code.add_child(format!("{name}: {name}"));
+                }
+            }
         }
+        code.add_code(fetch_code);
 
         let return_type = self.handle_singature_for_model(defs, &endpoint.return_type);
 
         // request error
         let error = "new Error(response.statusText)".to_string();
 
-        code += format!(
-            "\tif(!response.ok)\n\t\t{}\n",
-            self.handle_error(&error, &return_type)
-        )
-        .as_str();
+        let if_ = code.add_child("if(!response.ok)".to_string());
+        if_.add_child(self.handle_error(&error, &return_type));
 
         if let Type::Null = endpoint.return_type {
-            code += "\n}";
             return code;
         }
 
-        code += "\tlet j = await response.json();\n";
+        code.add_child("let j = await response.json();".to_string());
+
         match &endpoint.return_type {
             Type::Model(m) => {
                 for (name, ty) in &defs.models[m].params {
-                    code += self.validate_param(name, ty, &return_type).as_str();
+                    code.add_code(self.validate_param(name, ty, &return_type));
                 }
             }
             Type::Primitive(p) => {
                 let expected_type = self.handle_primitive(p);
-                code += format!(
-                    "\tif(typeof j != '{}')\n\t\t{}\n",
-                    expected_type,
-                    self.handle_error(
-                        &format!("new Error('response was not a {expected_type}')"),
-                        &return_type
-                    )
-                )
-                .as_str();
-                code += "\treturn j;\n";
+                let if_ = code.add_child(format!("if(typeof j != '{}')", self.handle_primitive(p)));
+                if_.add_child(self.handle_error(
+                    &format!("new Error('response was not a {expected_type}')"),
+                    &return_type,
+                ));
+                code.add_child("return j;".to_string());
             }
             _ => unreachable!(),
         }
-
-        code += "}";
 
         return code;
     }

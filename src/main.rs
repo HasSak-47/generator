@@ -4,7 +4,10 @@ mod python;
 mod ts;
 mod types;
 
-use dsl::{Definitons, Generator};
+use crate::{
+    builder::Code,
+    dsl::{Definitons, Generator},
+};
 
 use std::{fs::File, io::Write, path::PathBuf};
 
@@ -52,64 +55,74 @@ fn main() -> Result<()> {
 
         for (name, e) in &defs.enums {
             let g = generator.handle_enum(name, e);
-            if g.len() > 0 {
-                model_code += format!("{g}\n").as_str();
+            if g.has_code() {
+                model_code.add_code(g);
             }
         }
 
         for (name, model) in &defs.models {
             let g = generator.handle_model(name, model, &defs);
-            if g.len() > 0 {
-                model_code += format!("{g}\n").as_str();
+            if g.has_code() {
+                model_code.add_code(g);
             }
         }
 
         for (name, end_points) in &defs.end_points {
             let g = generator.handle_endpoint(name, end_points, &defs);
-            if g.len() > 0 {
-                endpoint_code += format!("{g}\n").as_str();
+            if g.has_code() {
+                endpoint_code.add_code(g);
             }
         }
+
+        let model_code = model_code.collapse_root("\t");
+        let endpoint_code = endpoint_code.collapse_root("\t");
 
         let mut model_path = cli.path.clone();
         model_path.push(format!("{prefix}models"));
         model_path.set_extension(extension);
+
         let mut model_file = File::create(model_path)?;
         model_file.write_all(model_code.as_bytes())?;
 
         let mut endpoint_path = cli.path.clone();
         endpoint_path.push(format!("{prefix}endpoints"));
         endpoint_path.set_extension(extension);
+
         let mut endpoint_file = File::create(endpoint_path)?;
         endpoint_file.write_all(endpoint_code.as_bytes())?;
     } else {
-        let mut code = generator.generate_endpoint_header();
-        code += generator.generate_model_header().as_str();
+        let mut code = Code::new();
+
+        code.add_code(generator.generate_model_header());
+        code.add_code(generator.generate_endpoint_header());
 
         for (name, e) in &defs.enums {
             let g = generator.handle_enum(name, e);
-            if g.len() > 0 {
-                code += format!("{g}\n").as_str();
+            if g.has_code() {
+                code.add_code(g);
             }
         }
 
         for (name, model) in &defs.models {
             let g = generator.handle_model(name, model, &defs);
-            if g.len() > 0 {
-                code += format!("{g}\n").as_str();
+            if g.has_code() {
+                code.add_code(g);
             }
         }
 
         for (name, end_points) in &defs.end_points {
             let g = generator.handle_endpoint(name, end_points, &defs);
-            if g.len() > 0 {
-                code += format!("{g}\n").as_str();
+            if g.has_code() {
+                code.add_code(g);
             }
         }
 
+        let code = code.collapse_root("\t");
         let mut path = cli.path.clone();
+
         path.push(format!("{prefix}generted"));
         path.set_extension(extension);
+
         let mut file = File::create(path)?;
         file.write_all(code.as_bytes())?;
     }
