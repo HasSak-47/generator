@@ -35,6 +35,14 @@ impl Code {
         return self.childs.last_mut().unwrap();
     }
 
+    pub fn flat_add_code(&mut self, child: Code) -> &mut Code {
+        self.add_child(child.code);
+        for child in child.childs {
+            self.childs.push(child);
+        }
+        return self.childs.last_mut().unwrap();
+    }
+
     pub fn add_child(&mut self, code: String) -> &mut Code {
         let child = Self::new_child(code);
         self.childs.push(child);

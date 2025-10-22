@@ -1,6 +1,8 @@
 use anyhow::{Result, anyhow};
 use std::fmt::{Debug, Display};
 
+use crate::dsl::Definitons;
+
 #[derive(PartialEq)]
 pub enum PrimitiveType {
     Bool,                    // int_x
@@ -116,11 +118,19 @@ impl Type {
         Self::Into(IntoType::new(from, to))
     }
 
-    pub fn root_is_into(&self) -> bool {
+    pub fn contains_into(&self, defs: &Definitons) -> bool {
         match self {
             Self::Into(_) => true,
-            Self::Optional(o) => o.ty.root_is_into(),
-            Self::Array(a) => a.ty.root_is_into(),
+            Self::Optional(o) => o.ty.contains_into(defs),
+            Self::Array(a) => a.ty.contains_into(defs),
+            Self::Model(m) => {
+                for (_, ty) in &defs.models[m].params {
+                    if ty.contains_into(defs) {
+                        return true;
+                    }
+                }
+                false
+            }
             _ => false,
         }
     }

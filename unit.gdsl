@@ -15,6 +15,7 @@ model Baz{
     end: string as datetime,
 }
 
-get_bar_state(name: string) @get "/api/v1/bar/{name}/state" -> Bar
-get_bar_id(name: string) @get "/api/v1/bar/{name}/id" -> uint
-get_bar_from_baz(baz: Baz) @get "/api/v1/bar/from/baz" -> Bar
+send_message(name: string) @get "/message/"
+get_bar_state(name: string) @get "/bar/{name}/state" -> Bar
+get_bar_id(name: string) @get "/bar/{name}/id" -> uint
+get_bar_from_baz(baz: Baz) @get "/bar/from/baz" -> string

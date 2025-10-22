@@ -144,7 +144,7 @@ impl TS {
 
                 return c;
             }
-            _ => Code::new_child(format!("searchParams.set('{name}', {name})")),
+            _ => Code::new_child(format!("searchParams.set('{name}', {name});")),
         }
     }
 
@@ -243,7 +243,7 @@ impl Generator for TS {
     fn handle_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> Code {
         let mut function_decl = format!("export async function {}(", name);
         for (name, ty) in &endpoint.params {
-            if ty.root_is_into() {
+            if ty.contains_into(defs) {
                 function_decl +=
                     format!("_{name}: {}, ", self.handle_singature_for_model(defs, &ty)).as_str();
             } else {
@@ -256,7 +256,7 @@ impl Generator for TS {
         code.end_code = "}".to_string();
 
         for (name, ty) in &endpoint.params {
-            if ty.root_is_into() {
+            if ty.contains_into(defs) {
                 code.add_child(format!(
                     "const {name} = {};",
                     self.get_convertion_string(name, &ty, defs)
@@ -277,7 +277,7 @@ impl Generator for TS {
         code.add_child(format!("let url = `{}`;", endpoint.url.replace("{", "${")));
 
         if has_query {
-            code.add_code(query);
+            code.flat_add_code(query);
             code.add_child(
                 "url = searchParams.size > 0 ? `${url}?${searchParams}` : url;".to_string(),
             );
@@ -296,11 +296,16 @@ impl Generator for TS {
         }
         if has_body {
             let body_code = fetch_code.add_child("body: JSON.stringify({".to_string());
+            body_code.end_code = "}),".to_string();
             for (name, _) in &endpoint.params {
                 if let EndPointParamKind::Body = endpoint.get_param_type(&name).unwrap() {
                     body_code.add_child(format!("{name}: {name}"));
                 }
             }
+
+            let header_code = fetch_code.add_child("headers: {".to_string());
+            header_code.end_code = "}".to_string();
+            header_code.add_child("'Content-Type': 'application/json'".to_string());
         }
         code.add_code(fetch_code);
 
@@ -313,6 +318,7 @@ impl Generator for TS {
         if_.add_child(self.handle_error(&error, &return_type));
 
         if let Type::Null = endpoint.return_type {
+            code.add_child(self.handle_ok(&"null".to_string(), &return_type));
             return code;
         }
 
