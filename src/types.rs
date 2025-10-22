@@ -1,7 +1,5 @@
 use std::fmt::{Debug, Display};
 
-use anyhow::anyhow;
-
 #[derive(PartialEq)]
 pub enum PrimitiveType {
     Integer(Option<usize>),  // int_x
@@ -109,6 +107,15 @@ impl Type {
     #[allow(dead_code)]
     pub fn into(from: Type, to: Repr) -> Self {
         Self::Into(IntoType::new(from, to))
+    }
+
+    pub fn root_is_into(&self) -> bool {
+        match self {
+            Self::Into(_) => true,
+            Self::Optional(o) => o.ty.root_is_into(),
+            Self::Array(a) => a.ty.root_is_into(),
+            _ => false,
+        }
     }
 
     fn determine<F: Fn(String) -> Type>(&mut self, models: &Vec<String>, builder: F) {

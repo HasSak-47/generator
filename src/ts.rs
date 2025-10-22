@@ -103,7 +103,7 @@ impl TS {
                 EnumHandling::ToAlgebraic => self.generate_enum_algebra(defs.enums.get(e).unwrap()),
                 EnumHandling::ToString => self.handle_type_signature(defs, &Type::string(None)),
             },
-            Type::Undetermined(u) => panic!("Undetermined: {u:?} reached a React generator",),
+            Type::Undetermined(u) => panic!("Undetermined: {u:?} reached a TS generator",),
             Type::Null => format!("null",),
         };
     }
@@ -150,8 +150,8 @@ impl TS {
     fn handle_result(&self, ok: String, err: String, ty: String) -> String {
         let (do_error, do_ok) = match self.error_handling {
             ErrorHandling::Result => (
-                format!("return Result<{ty}, Error>({err});"),
-                format!("return Result<{ty}, Error>({ok});"),
+                format!("return Result.err<{ty}, Error>({err});"),
+                format!("return Result.ok<{ty}, Error>({ok});"),
             ),
             ErrorHandling::Pair => (
                 format!("return [{err}, null]);"),
@@ -200,15 +200,21 @@ impl Generator for TS {
     fn handle_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> String {
         let mut code = format!("async function {}(", name);
         for (name, ty) in &endpoint.params {
-            code += format!("_{name}: {},", self.handle_type_signature(defs, &ty)).as_str();
+            if ty.root_is_into() {
+                code += format!("_{name}: {}, ", self.handle_type_signature(defs, &ty)).as_str();
+            } else {
+                code += format!("{name}: {}, ", self.handle_type_signature(defs, &ty)).as_str();
+            }
         }
         code += "){\n";
         for (name, ty) in &endpoint.params {
-            code += format!(
-                "\tconst {name} = {};\n",
-                self.get_convertion_string(name, &ty, defs)
-            )
-            .as_str();
+            if ty.root_is_into() {
+                code += format!(
+                    "\tconst {name} = {};\n",
+                    self.get_convertion_string(name, &ty, defs)
+                )
+                .as_str();
+            }
         }
 
         let mut has_query = false;
@@ -242,10 +248,10 @@ impl Generator for TS {
         if has_query {
             code += query.as_str();
             code += "\n";
-            code += format!("\tlet url = `{}`;\n", endpoint.url.replace("{", "${")).as_str();
+            code += format!("\tlet url = '{}';\n", endpoint.url.replace("{", "${")).as_str();
             code += "\turl = searchParams.size > 0 ? `${url}?${searchParams}` : url;\n";
         } else {
-            code += format!("\tlet url = `{}`;\n", endpoint.url.replace("{", "${")).as_str();
+            code += format!("\tlet url = '{}';\n", endpoint.url.replace("{", "${")).as_str();
         }
 
         if has_body {

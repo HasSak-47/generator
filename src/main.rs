@@ -5,7 +5,7 @@ mod types;
 
 use dsl::{Definitons, Generator};
 
-use std::path::PathBuf;
+use std::{fs::File, io::Write, path::PathBuf};
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -41,19 +41,66 @@ fn main() -> Result<()> {
         Generators::PythonFastApi(fastapi) => (Box::new(fastapi), "py"),
     };
 
-    println!("{}\n", generator.generate_endpoint_header());
-    println!("{}\n", generator.generate_model_header());
+    if cli.split {
+        let mut endpoint_code = generator.generate_endpoint_header();
+        let mut model_code = generator.generate_model_header();
 
-    for (name, e) in &defs.enums {
-        println!("{}\n", generator.handle_enum(name, e))
-    }
+        for (name, e) in &defs.enums {
+            let g = generator.handle_enum(name, e);
+            if g.len() > 0 {
+                model_code += format!("{g}\n").as_str();
+            }
+        }
 
-    for (name, model) in &defs.models {
-        println!("{}\n", generator.handle_model(name, model, &defs))
-    }
+        for (name, model) in &defs.models {
+            let g = generator.handle_model(name, model, &defs);
+            if g.len() > 0 {
+                model_code += format!("{g}\n").as_str();
+            }
+        }
 
-    for (name, end_points) in &defs.end_points {
-        println!("{}\n", generator.handle_endpoint(name, end_points, &defs))
+        for (name, end_points) in &defs.end_points {
+            let g = generator.handle_endpoint(name, end_points, &defs);
+            if g.len() > 0 {
+                endpoint_code += format!("{g}\n").as_str();
+            }
+        }
+
+        let mut model_path = cli.path.clone();
+        model_path.push("models");
+        model_path.set_extension(extension);
+        let mut model_file = File::create(model_path)?;
+        model_file.write_all(model_code.as_bytes())?;
+
+        let mut endpoint_path = cli.path.clone();
+        endpoint_path.push("endpoints");
+        endpoint_path.set_extension(extension);
+        let mut endpoint_file = File::create(endpoint_path)?;
+        endpoint_file.write_all(endpoint_code.as_bytes())?;
+    } else {
+        let mut code = generator.generate_endpoint_header();
+        code += generator.generate_model_header().as_str();
+
+        for (name, e) in &defs.enums {
+            let g = generator.handle_enum(name, e);
+            if g.len() > 0 {
+                code += format!("{g}\n").as_str();
+            }
+        }
+
+        for (name, model) in &defs.models {
+            let g = generator.handle_model(name, model, &defs);
+            if g.len() > 0 {
+                code += format!("{g}\n").as_str();
+            }
+        }
+
+        for (name, end_points) in &defs.end_points {
+            let g = generator.handle_endpoint(name, end_points, &defs);
+            if g.len() > 0 {
+                code += format!("{g}\n").as_str();
+            }
+        }
     }
 
     return Ok(());

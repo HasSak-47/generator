@@ -23,13 +23,6 @@ pub struct FastApi {
 }
 
 impl FastApi {
-    pub fn new() -> Self {
-        return Self {
-            app_name: "app".to_string(),
-            enum_handling: EnumHandling::ToEnum,
-        };
-    }
-
     fn handle_primitive(&self, p: &PrimitiveType) -> String {
         use PrimitiveType as PT;
         return match p {
@@ -78,6 +71,7 @@ impl Generator for FastApi {
         return code;
     }
 
+    #[allow(unused_variables)]
     fn handle_enum(&self, name: &str, model: &crate::dsl::Enum) -> String {
         if let EnumHandling::ToString = self.enum_handling {
             return String::new();
