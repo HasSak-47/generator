@@ -26,6 +26,7 @@ impl FastApi {
     fn handle_primitive(&self, p: &PrimitiveType) -> String {
         use PrimitiveType as PT;
         return match p {
+            PT::Bool => "bool",
             PT::Integer(_) | PT::Unsigned(_) => "int",
             PT::Float(_) => "float",
             PT::String(_) => "str",

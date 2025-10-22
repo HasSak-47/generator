@@ -32,9 +32,9 @@ array_mark     =  { "[" ~ prec? ~ "]" }
 
 repr_type      = ${ repr_root ~ ("_" ~ prec)? }
 repr_root      =  { "datetime" }
-
-primitive_type = ${ primitive_root ~ ("_" ~ prec)? }
-primitive_root =  { "int" | "uint" | "float" | "string" }
+primitive_type = ${ praw | pprec ~ ("_" ~ prec)? }
+praw           =  { "bool" }
+pprec          =  { "int" | "uint" | "float" | "string" }
 
 null_type      =  { "null" }
 

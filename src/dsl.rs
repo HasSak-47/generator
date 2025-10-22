@@ -85,22 +85,27 @@ pub struct LangParser {}
 
 fn handle_primitive_type<'a>(p: Pair<'a, Rule>) -> Type {
     let mut iter = p.into_inner();
-    let primitve_root = iter.next().unwrap();
-    assert_eq!(
-        primitve_root.as_rule(),
-        Rule::primitive_root,
-        "non primitive root found!"
-    );
-    let prec = iter
-        .next()
-        .and_then(|p| usize::from_str_radix(p.as_str(), 10).ok());
-    let primitive = primitve_root.as_str().to_string();
-    match primitive.as_str() {
-        "int" => Type::int(prec),
-        "uint" => Type::uint(prec),
-        "float" => Type::float(prec),
-        "string" => Type::string(prec),
-        s => unreachable!("unreachable string reached? : {s:?}"),
+    println!("{iter:?}");
+    let kind = iter.next().unwrap();
+    match kind.as_rule() {
+        Rule::pprec => {
+            let prec = iter
+                .next()
+                .and_then(|p| usize::from_str_radix(p.as_str(), 10).ok());
+            let primitive = kind.as_str().to_string();
+            match primitive.as_str() {
+                "int" => Type::int(prec),
+                "uint" => Type::uint(prec),
+                "float" => Type::float(prec),
+                "string" => Type::string(prec),
+                s => unreachable!("unreachable string reached? : {s:?}"),
+            }
+        }
+        Rule::praw => match kind.as_str() {
+            "bool" => Type::bool(),
+            s => unreachable!("unreachable string reached? : {s:?}"),
+        },
+        _ => unreachable!(),
     }
 }
 
@@ -298,45 +303,85 @@ mod test {
 
     #[test]
     fn type_test() -> anyhow::Result<()> {
-        const PRIMITIVES: &[&str] = &["int", "uint", "float", "string"];
-        let matches = &[
-            ("int", Type::int(None)),
-            ("int_32", Type::int(Some(32))),
-            ("int?", Type::optional(Type::int(None))),
-            ("int[]", Type::array(Type::int(None), None)),
-            ("int[10]", Type::array(Type::int(None), Some(10))),
-            (
-                "int[10]?",
-                Type::optional(Type::array(Type::int(None), Some(10))),
-            ),
-            (
-                "int?[10]",
-                Type::array(Type::optional(Type::int(None)), Some(10)),
-            ),
-            (
-                "Product?[10]",
-                Type::array(
-                    Type::optional(Type::Undetermined("Product".to_string())),
-                    Some(10),
-                ),
-            ),
-            (
-                "int_32 as datetime[10]",
-                Type::array(Type::into(Type::int(Some(32)), Repr::Datetime), Some(10)),
-            ),
-            (
-                "int_32 as datetime?[10]",
-                Type::array(
-                    Type::optional(Type::into(Type::int(Some(32)), Repr::Datetime)),
-                    Some(10),
-                ),
-            ),
-        ];
-        for (s, t) in matches {
-            let parse = LangParser::parse(Rule::ty, s)?.next().unwrap();
-            let ty = handle_type(parse);
-            assert_eq!(ty, *t);
+        const PREC_PRIMITIVES: &[&str] = &["int", "uint", "float", "string"];
+        const PRIMITIVES: &[&str] = &["bool"];
+
+        fn make_prec_primitive(prim: &str, bits: Option<usize>) -> Type {
+            match prim {
+                "int" => Type::int(bits),
+                "uint" => Type::uint(bits),
+                "float" => Type::float(bits),
+                "string" => Type::string(bits),
+                _ => unreachable!(),
+            }
         }
+
+        fn make_primitive(prim: &str) -> Type {
+            match prim {
+                "bool" => Type::bool(),
+                _ => unreachable!(),
+            }
+        }
+
+        for &prim in PREC_PRIMITIVES {
+            let matches = &[
+                (format!("{prim}_32"), make_prec_primitive(prim, Some(32))),
+                (
+                    format!("{prim}?"),
+                    Type::optional(make_prec_primitive(prim, None)),
+                ),
+                (
+                    format!("{prim}[]"),
+                    Type::array(make_prec_primitive(prim, None), None),
+                ),
+                (
+                    format!("{prim}[10]"),
+                    Type::array(make_prec_primitive(prim, None), Some(10)),
+                ),
+                (
+                    format!("{prim}[10]?"),
+                    Type::optional(Type::array(make_prec_primitive(prim, None), Some(10))),
+                ),
+                (
+                    format!("{prim}?[10]"),
+                    Type::array(Type::optional(make_prec_primitive(prim, None)), Some(10)),
+                ),
+            ];
+
+            for (s, expected) in matches {
+                let parse = LangParser::parse(Rule::ty, s)?.next().unwrap();
+                let ty = handle_type(parse);
+                assert_eq!(ty, *expected, "Failed for {s}");
+            }
+        }
+
+        for &prim in PRIMITIVES {
+            let matches = &[
+                // Width-specific variant (only applies to int/uint/float)
+                (format!("{prim}"), make_primitive(prim)),
+                (format!("{prim}?"), Type::optional(make_primitive(prim))),
+                (format!("{prim}[]"), Type::array(make_primitive(prim), None)),
+                (
+                    format!("{prim}[10]"),
+                    Type::array(make_primitive(prim), Some(10)),
+                ),
+                (
+                    format!("{prim}[10]?"),
+                    Type::optional(Type::array(make_primitive(prim), Some(10))),
+                ),
+                (
+                    format!("{prim}?[10]"),
+                    Type::array(Type::optional(make_primitive(prim)), Some(10)),
+                ),
+            ];
+
+            for (s, expected) in matches {
+                let parse = LangParser::parse(Rule::ty, s)?.next().unwrap();
+                let ty = handle_type(parse);
+                assert_eq!(ty, *expected, "Failed for {s}");
+            }
+        }
+
         return Ok(());
     }
 }

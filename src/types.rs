@@ -2,6 +2,7 @@ use std::fmt::{Debug, Display};
 
 #[derive(PartialEq)]
 pub enum PrimitiveType {
+    Bool,                    // int_x
     Integer(Option<usize>),  // int_x
     Unsigned(Option<usize>), // uint_x
     Float(Option<usize>),    // float_x
@@ -96,6 +97,10 @@ impl Type {
     pub fn string(prec: Option<usize>) -> Self {
         Self::Primitive(PrimitiveType::String(prec))
     }
+    #[allow(dead_code)]
+    pub fn bool() -> Self {
+        Self::Primitive(PrimitiveType::Bool)
+    }
 
     #[allow(dead_code)]
     pub fn optional(t: Type) -> Self {
@@ -154,6 +159,7 @@ impl Display for PrimitiveType {
         }
 
         match self {
+            Self::Bool => write!(f, "bool")?,
             Self::Integer(p) => write!(f, "int{}", prec(p))?,
             Self::Unsigned(p) => write!(f, "uint{}", prec(p))?,
             Self::Float(p) => write!(f, "float{}", prec(p))?,

@@ -68,6 +68,7 @@ impl TS {
     fn handle_primitive(&self, p: &PrimitiveType) -> String {
         use PrimitiveType as PT;
         return match p {
+            PT::Bool => "boolean",
             PT::Integer(_) | PT::Unsigned(_) | PT::Float(_) => "number",
             PT::String(_) => "string",
         }
@@ -151,8 +152,8 @@ impl TS {
     fn handle_result(&self, ok: String, err: String, ty: String) -> String {
         let (do_error, do_ok) = match self.error_handling {
             ErrorHandling::Result => (
-                format!("return Result.err<{ty}, Error>({err});"),
-                format!("return Result.ok<{ty}, Error>({ok});"),
+                format!("return Result.Err<{ty}, Error>({err});"),
+                format!("return Result.Ok<{ty}, Error>({ok});"),
             ),
             ErrorHandling::Pair => (
                 format!("return [{err}, null]);"),
@@ -168,7 +169,7 @@ impl TS {
 impl Generator for TS {
     fn generate_endpoint_header(&self) -> String {
         if let ErrorHandling::Result = self.error_handling {
-            return "import Result from './utils/result'".to_string();
+            return "import Result from '@/utils/result'\n".to_string();
         } else {
             return String::new();
         }
@@ -199,7 +200,7 @@ impl Generator for TS {
     }
 
     fn handle_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> String {
-        let mut code = format!("async function {}(", name);
+        let mut code = format!("export async function {}(", name);
         for (name, ty) in &endpoint.params {
             if ty.root_is_into() {
                 code += format!("_{name}: {}, ", self.handle_type_signature(defs, &ty)).as_str();

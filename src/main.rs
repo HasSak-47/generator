@@ -105,6 +105,12 @@ fn main() -> Result<()> {
                 code += format!("{g}\n").as_str();
             }
         }
+
+        let mut path = cli.path.clone();
+        path.push(format!("{prefix}_generted"));
+        path.set_extension(extension);
+        let mut file = File::create(path)?;
+        file.write_all(code.as_bytes())?;
     }
 
     return Ok(());
