@@ -113,6 +113,8 @@ fn handle_type<'a>(p: Pair<'a, Rule>) -> Type {
         Rule::primitive_type => handle_primitive_type(next),
         Rule::null_type => Type::Null,
         Rule::complex_type => Type::Undetermined(next.as_str().to_string()),
+        Rule::repr_type => Type::Repr(Repr::Datetime),
+
         Rule::into_type => {
             let mut inner = next.into_inner();
             let from = inner.next().unwrap();

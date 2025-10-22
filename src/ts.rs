@@ -74,13 +74,6 @@ impl TS {
         .to_string();
     }
 
-    fn handle_repr(&self, r: &Repr) -> String {
-        return match r {
-            Repr::Datetime => "Date",
-        }
-        .to_string();
-    }
-
     fn generate_enum_algebra(&self, e: &Enum) -> String {
         let mut poss = e.params.iter();
         let mut s = format!("{}", poss.next().unwrap());
@@ -91,12 +84,20 @@ impl TS {
         s
     }
 
+    fn handle_repr_signature(&self, r: &Repr) -> String {
+        match r {
+            Repr::Datetime => "Date",
+        }
+        .to_string()
+    }
+
     fn handle_type_signature(&self, defs: &Definitons, ty: &Type) -> String {
         return match ty {
             Type::Primitive(p) => self.handle_primitive(p),
+            Type::Repr(r) => self.handle_repr_signature(r),
             Type::Optional(o) => format!("{} | null", self.handle_type_signature(defs, &o.ty)),
             Type::Array(a) => format!("{}[]", self.handle_type_signature(defs, &a.ty)),
-            Type::Into(i) => format!("{}", self.handle_repr(&i.into)),
+            Type::Into(i) => format!("{}", self.handle_repr_signature(&i.into)),
             Type::Model(m) => format!("{m}",),
             Type::Enum(e) => match self.type_enum {
                 EnumHandling::ToType | EnumHandling::ToEnum => format!("{e}"),

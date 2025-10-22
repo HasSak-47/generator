@@ -20,16 +20,24 @@ operation      =  { "get" | "post" | "put" }
 path = ${ "\"" ~ inner ~ "\""}
 
 member_field   = ${ name ~ " "* ~ ":" ~ " "* ~ ty }
-ty             = ${ (into_type | primitive_type | null_type | complex_type) ~ weird_mark* }
-into_type      = ${ primitive_type ~ " "* ~ "as" ~ " "* ~ weird_types }
+ty             = ${ (into_type | repr_type | primitive_type | null_type | complex_type) ~ weird_mark* }
+into_type      = ${ primitive_type ~ " "* ~ "as" ~ " "* ~ repr_type }
+
+complex_type   = ${ name }
+
 weird_mark     = ${ (option_mark | array_mark) }
 option_mark    = @{ "?" }
 array_mark     =  { "[" ~ prec? ~ "]" }
-complex_type   = ${ name }
+
+
+repr_type      = ${ repr_root ~ ("_" ~ prec)? }
+repr_root      =  { "datetime" }
+
 primitive_type = ${ primitive_root ~ ("_" ~ prec)? }
 primitive_root =  { "int" | "uint" | "float" | "string" }
+
 null_type      =  { "null" }
-weird_types    =  { "datetime" }
+
 name           = @{ (ASCII_ALPHA | "_")+ }
 prec           = @{ ASCII_DIGIT+ }
 string         = ${ "\"" ~ inner ~ "\"" }

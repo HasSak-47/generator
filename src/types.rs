@@ -59,6 +59,7 @@ impl Repr {}
 #[derive(PartialEq)]
 pub enum Type {
     Primitive(PrimitiveType), // PT
+    Repr(Repr),               // RT
     Optional(OptionType),     // T?
     Null,                     // null
     Array(ArrayType),         // T[x] singled typed arrays
@@ -195,6 +196,7 @@ impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Primitive(p) => write!(f, "{p}")?,
+            Self::Repr(r) => write!(f, "{r}")?,
             Self::Optional(o) => write!(f, "{o}")?,
             Self::Array(a) => write!(f, "{a}")?,
             Self::Into(i) => write!(f, "{i}")?,
@@ -242,6 +244,7 @@ impl Debug for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Primitive(p) => write!(f, "{p:?}")?,
+            Self::Repr(r) => write!(f, "{r:?}")?,
             Self::Optional(o) => write!(f, "{o:?}")?,
             Self::Array(a) => write!(f, "{a:?}")?,
             Self::Into(i) => write!(f, "{i:?}")?,

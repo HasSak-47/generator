@@ -20,6 +20,9 @@ struct Cli {
     #[arg(short, long, default_value_t = false)]
     pub split: bool,
 
+    #[arg(short, long)]
+    pub prefix: Option<String>,
+
     #[arg(short, long, default_value_os_t = {PathBuf::from("./src/generated")})]
     pub path: PathBuf,
 
@@ -35,6 +38,7 @@ enum Generators {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
+    let prefix = cli.prefix.unwrap_or(String::new());
     let defs = Definitons::get_definitions(cli.definitions)?;
     let (generator, extension): (Box<dyn Generator>, &str) = match cli.generator {
         Generators::Typescript(ts) => (Box::new(ts), "ts"),
@@ -67,13 +71,13 @@ fn main() -> Result<()> {
         }
 
         let mut model_path = cli.path.clone();
-        model_path.push("models");
+        model_path.push(format!("{prefix}models"));
         model_path.set_extension(extension);
         let mut model_file = File::create(model_path)?;
         model_file.write_all(model_code.as_bytes())?;
 
         let mut endpoint_path = cli.path.clone();
-        endpoint_path.push("endpoints");
+        endpoint_path.push(format!("{prefix}endpoints"));
         endpoint_path.set_extension(extension);
         let mut endpoint_file = File::create(endpoint_path)?;
         endpoint_file.write_all(endpoint_code.as_bytes())?;

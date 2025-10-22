@@ -1,6 +1,6 @@
 use crate::{
     dsl::{Definitons, EndPoint, Generator, Model},
-    types::{PrimitiveType, Type},
+    types::{PrimitiveType, Repr, Type},
 };
 
 use clap::{Parser, ValueEnum};
@@ -33,9 +33,17 @@ impl FastApi {
         .to_string();
     }
 
+    fn handle_repr(&self, r: &Repr) -> String {
+        match r {
+            Repr::Datetime => "dt.datetime",
+        }
+        .to_string()
+    }
+
     fn handle_type(&self, defs: &Definitons, ty: &Type) -> String {
         return match ty {
             Type::Primitive(p) => self.handle_primitive(p),
+            Type::Repr(r) => self.handle_repr(r),
             Type::Optional(o) => format!("Optional[{}]", self.handle_type(defs, &o.ty)),
             Type::Array(a) => format!("List[{}]", self.handle_type(defs, &a.ty)),
             Type::Into(i) => format!("{}", self.handle_type(defs, &i.from)),
