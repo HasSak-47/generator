@@ -214,14 +214,15 @@ impl Generator for TS {
     }
 
     fn handle_model(&self, name: &str, model: &Model, defs: &Definitons) -> Code {
-        let mut code = Code::new_child(format!("type {} = {{", name));
+        let mut code = Code::new();
+        let type_decl = code.add_child(format!("type {} = {{", name));
         for (name, ty) in &model.params {
-            code.add_child(format!(
+            type_decl.add_child(format!(
                 "{name}: {};",
                 self.handle_singature_for_model(defs, &ty)
             ));
         }
-        code.end_code = "};".to_string();
+        type_decl.end_code = "};".to_string();
 
         return code;
     }
@@ -253,7 +254,7 @@ impl Generator for TS {
             }
         }
         function_decl += "){";
-        let mut function = code.add_child(function_decl);
+        let function = code.add_child(function_decl);
         function.end_code = "}".to_string();
 
         for (name, ty) in &endpoint.params {

@@ -118,6 +118,19 @@ impl Type {
         Self::Into(IntoType::new(from, to))
     }
 
+    pub fn unfold_models<'a>(&'a self, defs: &'a Definitons) -> Vec<&'a String> {
+        let mut v = Vec::new();
+        if let Self::Model(m) = self {
+            v.push(m);
+            for (_, ty) in &defs.models[m].params {
+                let mut w = ty.unfold_models(defs);
+                v.append(&mut w);
+            }
+        }
+
+        return v;
+    }
+
     pub fn contains_into(&self, defs: &Definitons) -> bool {
         match self {
             Self::Into(_) => true,
