@@ -1,7 +1,4 @@
-use std::fmt::Display;
-
-use anyhow::{Result, anyhow};
-
+/// Tree-structured code fragment that can be rendered with indentation.
 #[derive(Debug)]
 pub struct Code {
     pub code: String,
@@ -35,6 +32,7 @@ impl Code {
         return self.childs.last_mut().unwrap();
     }
 
+    /// Inline the child's immediate statements, but keep its descendants nested.
     pub fn flat_add_code(&mut self, child: Code) -> &mut Code {
         self.add_child(child.code);
         for child in child.childs {
@@ -49,8 +47,9 @@ impl Code {
         return self.childs.last_mut().unwrap();
     }
 
-    // NOTE: this doesn't add 1 to a childs level
-    // because the level of the childs must be 0
+    /// Collapse the tree into a single string while treating the current node as indentation level 0.
+    /// NOTE: this doesn't add 1 to a childs level
+    /// because the level of the childs must be 0
     pub fn collapse_root<S: AsRef<str>>(&self, pad: S) -> String {
         let pad = pad.as_ref();
         let mut code = String::new();

@@ -5,8 +5,8 @@ Generator is a Rust CLI that reads a small DSL describing API models, enums, and
 ## How It Works
 
 - Definitions are written in the `.defs` DSL parsed by Pest (`pest/lang.pest`).
-- `src/dsl.rs` loads the DSL, builds in-memory models, enums, and endpoints, and normalises types.
-- Each target implements `dsl::Generator` to emit code for its platform (`src/ts.rs`, `src/python.rs`).
+- `src/dsl.rs` loads the DSL, builds in-memory models, enums, and endpoints, and normalises types. Inline docs describe how parsed rules are turned into semantic types.
+- Each target implements `dsl::Generator` to emit code for its platform (`src/ts.rs`, `src/python.rs`). See the doc comments on helper methods for how conversion pipelines and annotations are produced.
 
 ## Usage
 
@@ -27,5 +27,5 @@ cargo run -- ex.defs python-fast-api app to_string
 
 ## Project Structure
 
-- `src/` generator entry point and target implementations.
+- `src/` generator entry point and target implementations. Key modules now include documentation explaining non-obvious helper flows.
 - `pest/` grammar and macro files for the DSL parser.

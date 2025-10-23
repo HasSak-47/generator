@@ -42,6 +42,7 @@ impl FastApi {
         .to_string()
     }
 
+    /// Map DSL types to the string annotations required by FastAPI and pydantic.
     fn handle_type(&self, defs: &Definitons, ty: &Type) -> String {
         return match ty {
             Type::Primitive(p) => self.handle_primitive(p),

@@ -126,6 +126,7 @@ impl TS {
         }
     }
 
+    /// Build the expression that converts an "input" value into its wire representation.
     fn get_convertion_string<S: AsRef<str>>(
         &self,
         name: S,
@@ -133,6 +134,10 @@ impl TS {
         defs: &Definitons,
     ) -> String {
         let name = name.as_ref();
+        if !ty.contains_into(defs) {
+            panic!("it doesn't contain an into type!");
+        }
+
         match ty {
             Type::Into(into) => {
                 return match into.into {
@@ -151,7 +156,10 @@ impl TS {
                     self.get_convertion_string("e", &arr.ty, defs)
                 )
             }
-            _ => format!("_{name}"),
+            Type::Model(model) => {
+                format!("transform_{model}({name})")
+            }
+            _ => format!("raise new Error('not implemented')"),
         }
     }
 
@@ -171,6 +179,7 @@ impl TS {
         };
     }
 
+    /// Strip `Into` wrappers so we can generate helper models that mirror the request payload.
     fn transform_type(&self, ty: &Type, defs: &Definitons) -> Type {
         match ty {
             Type::Array(a) => {
@@ -187,37 +196,71 @@ impl TS {
         }
     }
 
+    /// Create a shadow model where `Into` fields are renamed and converted to their source types.
+    fn translate_model(&self, model: &Model, defs: &Definitons) -> Model {
+        let mut translated = Model { params: Vec::new() };
+        for (pname, pty) in &model.params {
+            if pty.contains_into(defs) {
+                let name = format!("_{pname}");
+                let ty = self.transform_type(pty, defs);
+                translated.params.push((name, ty));
+            } else {
+                translated.params.push((pname.clone(), pty.clone()));
+            }
+        }
+
+        return translated;
+    }
+
+    /// Emit internal helper types for request bodies that require pre-flight transforms.
     fn generate_request_models(&self, defs: &Definitons) -> Code {
         let mut code = Code::new();
         for (model_name, model) in &defs.models {
             let ty = Type::Model(model_name.clone());
-            if ty.contains_into(defs) {
-                let mut translated = Model { params: Vec::new() };
-                for (pname, pty) in &model.params {
-                    if pty.contains_into(defs) {
-                        let name = format!("_{pname}");
-                        let ty = self.transform_type(pty, defs);
-                        translated.params.push((name, ty));
-                    } else {
-                        translated.params.push((pname.clone(), pty.clone()));
-                    }
-                }
-
-                let name = format!("_{model_name}");
-                code.flat_add_code(self._handle_model(name.as_str(), &translated, defs, false));
+            if !ty.contains_into(defs) {
+                continue;
             }
+
+            let translated = self.translate_model(model, defs);
+            let name = format!("_{model_name}");
+
+            code.flat_add_code(self._handle_model(name.as_str(), &translated, defs, false));
         }
         return code;
     }
 
+    /// Emit the conversion helpers that map public models into the helper request models.
     fn generate_request_transitions(&self, defs: &Definitons) -> Code {
         let mut code = Code::new();
         code.flat_add_code(self.generate_request_models(defs));
-        // TODO: add functions
+
+        for (model_name, model) in &defs.models {
+            let ty = Type::Model(model_name.clone());
+            if !ty.contains_into(defs) {
+                continue;
+            }
+
+            let function = code.add_child(format!(
+                "function transform_{model_name}(m: {model_name}){{"
+            ));
+            function.end_code = "}".to_string();
+
+            let return_map = function.add_child("return {".to_string());
+
+            for (name, ty) in &model.params {
+                return_map.add_child(format!(
+                    "{name} : {},",
+                    self.get_convertion_string(format!("m.{name}"), ty, defs)
+                ));
+            }
+
+            return_map.end_code = format!("}} as _{model_name};");
+        }
 
         return code;
     }
 
+    /// Guard against missing fields on loosely typed JSON responses.
     fn validate_param(&self, name: &String, _expected_type: &Type, return_type: &String) -> Code {
         let mut code = Code::new_child(format!("if(j.{name} === undefined)"));
         code.add_child(self.handle_error(
@@ -254,6 +297,7 @@ impl Generator for TS {
             code.add_child("import Result from '@/utils/result'".to_string());
         }
 
+        code.flat_add_code(self.generate_request_models(defs));
         code.flat_add_code(self.generate_request_transitions(defs));
 
         return code;
@@ -284,7 +328,7 @@ impl Generator for TS {
         let mut code = Code::new();
         let mut function_decl = format!("export async function {}(", name);
         for (name, ty) in &endpoint.params {
-            if !ty.contains_into(defs) {
+            if ty.contains_into(defs) {
                 function_decl +=
                     format!("_{name}: {}, ", self.handle_singature_for_model(defs, &ty)).as_str();
             } else {
@@ -296,7 +340,16 @@ impl Generator for TS {
         let function = code.add_child(function_decl);
         function.end_code = "}".to_string();
 
-        // TODO: add transition calls
+        for (name, ty) in &endpoint.params {
+            if !ty.contains_into(defs) {
+                continue;
+            }
+
+            function.add_child(format!(
+                "const {name} = {};",
+                self.get_convertion_string(name, ty, defs)
+            ));
+        }
 
         let mut has_query = false;
         let mut query = Code::new_child("const searchParams = new URLSearchParams();".to_string());
@@ -328,6 +381,8 @@ impl Generator for TS {
                 break;
             }
         }
+
+        // request body
         if has_body {
             let body_code = fetch_code.add_child("body: JSON.stringify({".to_string());
             body_code.end_code = "}),".to_string();

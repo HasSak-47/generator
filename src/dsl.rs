@@ -83,6 +83,7 @@ pub struct Definitons {
 #[grammar = "pest/lang.pest"]
 pub struct LangParser {}
 
+/// Convert a primitive rule from the parser into the corresponding strongly typed variant.
 fn handle_primitive_type<'a>(p: Pair<'a, Rule>) -> Type {
     let mut iter = p.into_inner();
     let kind = iter.next().unwrap();
@@ -108,6 +109,7 @@ fn handle_primitive_type<'a>(p: Pair<'a, Rule>) -> Type {
     }
 }
 
+/// Recursively walk the parsed type expression and build the semantic `Type`.
 fn handle_type<'a>(p: Pair<'a, Rule>) -> Type {
     assert_eq!(p.as_rule(), Rule::ty);
     let mut iter = p.into_inner();
@@ -135,6 +137,7 @@ fn handle_type<'a>(p: Pair<'a, Rule>) -> Type {
         e => unreachable!("unreachable rule reached? : {e:?}"),
     };
 
+    // Apply trailing decorators such as option or array in the order they appear.
     while let Some(_) = iter.peek() {
         let next = iter.next().unwrap();
         assert_eq!(next.as_rule(), Rule::weird_mark);
@@ -177,6 +180,7 @@ impl Definitons {
         }
     }
 
+    /// Resolve undetermined references into concrete enums/models and fail fast on unknown names.
     fn expand_types(&mut self) {
         let model_names: Vec<String> = self.models.keys().map(|k| k.clone()).collect();
         let enum_names: Vec<String> = self.enums.keys().map(|k| k.clone()).collect();
@@ -206,6 +210,7 @@ impl Definitons {
         }
     }
 
+    /// Load the DSL file, parse it with pest, and translate the AST into `Definitons`.
     pub fn get_definitions<P: AsRef<Path>>(p: P) -> Result<Self> {
         let mut file = File::open(p)?;
         let mut buf = String::new();
@@ -293,10 +298,10 @@ impl Definitons {
 }
 
 pub trait Generator {
-    fn generate_endpoint_header(&self, defs: &Definitons) -> Code {
+    fn generate_endpoint_header(&self, _defs: &Definitons) -> Code {
         return Code::new();
     }
-    fn generate_model_header(&self, defs: &Definitons) -> Code {
+    fn generate_model_header(&self, _defs: &Definitons) -> Code {
         return Code::new();
     }
 

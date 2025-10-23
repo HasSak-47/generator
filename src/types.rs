@@ -121,6 +121,7 @@ impl Type {
         Self::Into(IntoType::new(from, to))
     }
 
+    /// Recursively collect every model referenced by this type (including nested fields).
     pub fn unfold_models(&self, defs: &Definitons) -> HashSet<String> {
         let mut s = HashSet::new();
         if let Self::Model(m) = self {
@@ -135,6 +136,7 @@ impl Type {
         return s;
     }
 
+    /// Returns true if the type or any nested field needs an `Into` conversion before transport.
     pub fn contains_into(&self, defs: &Definitons) -> bool {
         match self {
             Self::Into(_) => true,
@@ -152,6 +154,7 @@ impl Type {
         }
     }
 
+    /// Replace `Undetermined` placeholders with concrete enum/model types based on known names.
     fn determine<F: Fn(String) -> Type>(&mut self, models: &Vec<String>, builder: F) -> Result<()> {
         match self {
             Self::Array(arr) => {
