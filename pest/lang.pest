@@ -17,18 +17,17 @@ end_point = {
 operation_mark = ${ "@" ~ operation }
 operation      =  { "get" | "post" | "put" }
 
-path = ${ "\"" ~ inner ~ "\""}
+path = ${ "\"" ~ inner ~ "\"" }
 
-member_field   = ${ name ~ " "* ~ ":" ~ " "* ~ ty }
-ty             = ${ (into_type | repr_type | primitive_type | null_type | complex_type) ~ weird_mark* }
-into_type      = ${ primitive_type ~ " "* ~ "as" ~ " "* ~ repr_type }
+member_field = ${ name ~ " "* ~ ":" ~ " "* ~ ty }
+ty           = ${ (into_type | repr_type | primitive_type | null_type | complex_type) ~ weird_mark* }
+into_type    = ${ primitive_type ~ " "* ~ "as" ~ " "* ~ repr_type }
 
-complex_type   = ${ name }
+complex_type = ${ name }
 
-weird_mark     = ${ (option_mark | array_mark) }
-option_mark    = @{ "?" }
-array_mark     =  { "[" ~ prec? ~ "]" }
-
+weird_mark  = ${ (option_mark | array_mark) }
+option_mark = @{ "?" }
+array_mark  =  { "[" ~ prec? ~ "]" }
 
 repr_type      = ${ repr_root ~ ("_" ~ prec)? }
 repr_root      =  { "datetime" }
@@ -36,13 +35,13 @@ primitive_type = ${ praw | pprec ~ ("_" ~ prec)? }
 praw           =  { "bool" }
 pprec          =  { "int" | "uint" | "float" | "string" }
 
-null_type      =  { "null" }
+null_type = { "null" }
 
-name           = @{ (ASCII_ALPHA | "_")+ }
-prec           = @{ ASCII_DIGIT+ }
-string         = ${ "\"" ~ inner ~ "\"" }
-inner          = @{ char* }
-char           =  {
+name   = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")+ }
+prec   = @{ ASCII_DIGIT+ }
+string = ${ "\"" ~ inner ~ "\"" }
+inner  = @{ char* }
+char   =  {
     !("\"" | "\\") ~ ANY
   | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
   | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})

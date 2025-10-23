@@ -134,32 +134,29 @@ impl TS {
         defs: &Definitons,
     ) -> String {
         let name = name.as_ref();
-        if !ty.contains_into(defs) {
-            panic!("it doesn't contain an into type!");
-        }
 
         match ty {
             Type::Into(into) => {
                 return match into.into {
-                    Repr::Datetime => format!("_{name}.toISOString()"),
+                    Repr::Datetime => format!("{name}.toISOString()"),
                 };
             }
             Type::Optional(opt) => {
                 format!(
-                    "_{name} !== null ? {} : null",
+                    "{name} !== null ? {} : null",
                     self.get_convertion_string(name, &opt.ty, defs)
                 )
             }
             Type::Array(arr) => {
                 format!(
-                    "_{name}.map(e => {{ return {}}})",
+                    "{name}.map(e => {{ return {}}})",
                     self.get_convertion_string("e", &arr.ty, defs)
                 )
             }
             Type::Model(model) => {
                 format!("transform_{model}({name})")
             }
-            _ => format!("raise new Error('not implemented')"),
+            _ => name.to_string(),
         }
     }
 
@@ -201,9 +198,8 @@ impl TS {
         let mut translated = Model { params: Vec::new() };
         for (pname, pty) in &model.params {
             if pty.contains_into(defs) {
-                let name = format!("_{pname}");
                 let ty = self.transform_type(pty, defs);
-                translated.params.push((name, ty));
+                translated.params.push((pname.clone(), ty));
             } else {
                 translated.params.push((pname.clone(), pty.clone()));
             }
@@ -240,7 +236,7 @@ impl TS {
             }
 
             let function = code.add_child(format!(
-                "function transform_{model_name}(m: {model_name}){{"
+                "function transform_{model_name}(_m: {model_name}){{"
             ));
             function.end_code = "}".to_string();
 
@@ -249,7 +245,7 @@ impl TS {
             for (name, ty) in &model.params {
                 return_map.add_child(format!(
                     "{name} : {},",
-                    self.get_convertion_string(format!("m.{name}"), ty, defs)
+                    self.get_convertion_string(format!("_m.{name}"), ty, defs)
                 ));
             }
 
@@ -261,6 +257,7 @@ impl TS {
 
     /// Guard against missing fields on loosely typed JSON responses.
     fn validate_param(&self, name: &String, _expected_type: &Type, return_type: &String) -> Code {
+        // TODO: add type guards
         let mut code = Code::new_child(format!("if(j.{name} === undefined)"));
         code.add_child(self.handle_error(
             &format!("new Error('field {name} is undefined')"),
@@ -417,6 +414,7 @@ impl Generator for TS {
                 for (name, ty) in &defs.models[m].params {
                     function.add_code(self.validate_param(name, ty, &return_type));
                 }
+                function.add_child(format!("return j as {return_type}"));
             }
             Type::Primitive(p) => {
                 let expected_type = self.handle_primitive(p);
@@ -428,7 +426,11 @@ impl Generator for TS {
                 ));
                 function.add_child("return j;".to_string());
             }
-            _ => unreachable!(),
+            // TODO: add
+            Type::Array(_) => {
+                function.add_child(format!("return j as {};", return_type));
+            }
+            _ => todo!(),
         }
 
         return code;
