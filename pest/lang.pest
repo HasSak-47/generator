@@ -29,15 +29,15 @@ map_type     = ${ "<" ~ " "* ~ primitive_type ~ " "* ~ "," ~ " "* ~ ty ~ " "* ~ 
 complex_type = ${ name }
 
 value_type  = ${ value }
-sum_type    =  { "(" ~ ty ~ "or" ~ ty ~ ")"}
+sum_type    =  { "(" ~ ty ~ "or" ~ ty ~ ")" }
 weird_mark  = ${ (option_mark | array_mark) }
 option_mark = @{ "?" }
 array_mark  =  { "[" ~ prec? ~ "]" }
 
-repr_type      = ${ repr_root ~ ("_" ~ prec)? }
-repr_root      = ${ datetime }
+repr_type = ${ repr_root ~ ("_" ~ prec)? }
+repr_root = ${ datetime }
 
-datetime       =  { "datetime" ~ ("@" ~ name)?}
+datetime = { "datetime" ~ ("@" ~ name)? }
 
 primitive_type = ${ praw | pprec ~ ("_" ~ prec)? }
 praw           =  { "bool" }
@@ -47,9 +47,9 @@ null_type = { "null" }
 
 value  = ${ string | int | float | bool }
 bool   = @{ "true" | "false" }
-float  = @{ sign? ~ (ASCII_DIGIT)+ ~ ("." ~ ASCII_DIGIT*)?}
-int    = @{ sign? ~ (ASCII_DIGIT)+}
-sign   = @{ "-" | "+"}
+float  = @{ sign? ~ (ASCII_DIGIT)+ ~ ("." ~ ASCII_DIGIT*)? }
+int    = @{ sign? ~ (ASCII_DIGIT)+ }
+sign   = @{ "-" | "+" }
 name   = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")+ }
 prec   = @{ ASCII_DIGIT+ }
 string = ${ "\"" ~ inner ~ "\"" }
