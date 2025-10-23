@@ -232,7 +232,6 @@ impl TS {
     /// Emit the conversion helpers that map public models into the helper request models.
     fn generate_request_transitions(&self, defs: &Definitons) -> Code {
         let mut code = Code::new();
-        code.flat_add_code(self.generate_request_models(defs));
 
         for (model_name, model) in &defs.models {
             let ty = Type::Model(model_name.clone());

@@ -21,8 +21,11 @@ struct Cli {
     #[arg(default_value_os_t = {PathBuf::from("./definitions.defs")})]
     pub definitions: PathBuf,
 
-    #[arg(short, long, default_value_t = false)]
+    #[arg(short = 'S', long, default_value_t = false)]
     pub split: bool,
+
+    #[arg(short, long, default_value_t = false)]
+    pub keep_between: bool,
 
     #[arg(short = 'P', long)]
     pub prefix: Option<String>,
@@ -49,33 +52,54 @@ fn main() -> Result<()> {
         Generators::PythonFastApi(fastapi) => (Box::new(fastapi), "py"),
     };
 
+    let add_enums = |code: &mut Code| {
+        let mut names: Vec<_> = defs.enums.keys().collect();
+        names.sort();
+        for name in names {
+            let model = &defs.enums[name];
+            let g = generator.handle_enum(name, model);
+            if g.has_code() {
+                code.flat_add_code(g);
+            }
+        }
+    };
+
+    let add_models = |code: &mut Code| {
+        let mut names: Vec<_> = defs.models.keys().collect();
+        names.sort();
+        for name in names {
+            let model = &defs.models[name];
+            let g = generator.handle_model(name, model, &defs);
+            if g.has_code() {
+                code.add_child(String::new());
+                code.flat_add_code(g);
+            }
+        }
+    };
+
+    let add_endpoints = |code: &mut Code| {
+        let mut names: Vec<_> = defs.end_points.keys().collect();
+        names.sort();
+        for name in names {
+            let endpoint = &defs.end_points[name];
+            let g = generator.handle_endpoint(name, endpoint, &defs);
+            if g.has_code() {
+                code.add_child(String::new());
+                code.flat_add_code(g);
+            }
+        }
+    };
+
     if cli.split {
         let mut endpoint_code = generator.generate_endpoint_header(&defs);
         let mut model_code = generator.generate_model_header(&defs);
 
-        for (name, e) in &defs.enums {
-            let g = generator.handle_enum(name, e);
-            if g.has_code() {
-                model_code.flat_add_code(g);
-            }
-        }
+        add_enums(&mut model_code);
+        add_models(&mut model_code);
+        add_endpoints(&mut endpoint_code);
 
-        for (name, model) in &defs.models {
-            let g = generator.handle_model(name, model, &defs);
-            if g.has_code() {
-                model_code.flat_add_code(g);
-            }
-        }
-
-        for (name, end_points) in &defs.end_points {
-            let g = generator.handle_endpoint(name, end_points, &defs);
-            if g.has_code() {
-                endpoint_code.flat_add_code(g);
-            }
-        }
-
-        let model_code = model_code.collapse_root("\t");
-        let endpoint_code = endpoint_code.collapse_root("\t");
+        let model_code = model_code.collapse_root("\t", !cli.keep_between);
+        let endpoint_code = endpoint_code.collapse_root("\t", !cli.keep_between);
 
         let mut model_path = cli.path.clone();
         model_path.push(format!("{prefix}models"));
@@ -96,28 +120,11 @@ fn main() -> Result<()> {
         code.flat_add_code(generator.generate_model_header(&defs));
         code.flat_add_code(generator.generate_endpoint_header(&defs));
 
-        for (name, e) in &defs.enums {
-            let g = generator.handle_enum(name, e);
-            if g.has_code() {
-                code.flat_add_code(g);
-            }
-        }
+        add_enums(&mut code);
+        add_models(&mut code);
+        add_endpoints(&mut code);
 
-        for (name, model) in &defs.models {
-            let g = generator.handle_model(name, model, &defs);
-            if g.has_code() {
-                code.flat_add_code(g);
-            }
-        }
-
-        for (name, end_points) in &defs.end_points {
-            let g = generator.handle_endpoint(name, end_points, &defs);
-            if g.has_code() {
-                code.flat_add_code(g);
-            }
-        }
-
-        let code = code.collapse_root("\t");
+        let code = code.collapse_root("\t", !cli.keep_between);
         let mut path = cli.path.clone();
 
         path.push(format!("{prefix}generted"));
