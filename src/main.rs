@@ -50,8 +50,8 @@ fn main() -> Result<()> {
     };
 
     if cli.split {
-        let mut endpoint_code = generator.generate_endpoint_header();
-        let mut model_code = generator.generate_model_header();
+        let mut endpoint_code = generator.generate_endpoint_header(&defs);
+        let mut model_code = generator.generate_model_header(&defs);
 
         for (name, e) in &defs.enums {
             let g = generator.handle_enum(name, e);
@@ -93,8 +93,8 @@ fn main() -> Result<()> {
     } else {
         let mut code = Code::new();
 
-        code.add_code(generator.generate_model_header());
-        code.add_code(generator.generate_endpoint_header());
+        code.flat_add_code(generator.generate_model_header(&defs));
+        code.flat_add_code(generator.generate_endpoint_header(&defs));
 
         for (name, e) in &defs.enums {
             let g = generator.handle_enum(name, e);

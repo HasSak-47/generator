@@ -1,9 +1,12 @@
 use anyhow::{Result, anyhow};
-use std::fmt::{Debug, Display};
+use std::{
+    collections::HashSet,
+    fmt::{Debug, Display},
+};
 
 use crate::dsl::Definitons;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub enum PrimitiveType {
     Bool,                    // int_x
     Integer(Option<usize>),  // int_x
@@ -12,7 +15,7 @@ pub enum PrimitiveType {
     String(Option<usize>),   // string_x
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub struct OptionType {
     pub ty: Box<Type>,
 }
@@ -23,7 +26,7 @@ impl OptionType {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub struct ArrayType {
     pub ty: Box<Type>,
     pub len: Option<usize>,
@@ -38,7 +41,7 @@ impl ArrayType {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub struct IntoType {
     pub from: Box<Type>,
     pub into: Repr,
@@ -53,14 +56,14 @@ impl IntoType {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub enum Repr {
     Datetime,
 }
 
 impl Repr {}
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub enum Type {
     Primitive(PrimitiveType), // PT
     Repr(Repr),               // RT
@@ -118,17 +121,18 @@ impl Type {
         Self::Into(IntoType::new(from, to))
     }
 
-    pub fn unfold_models<'a>(&'a self, defs: &'a Definitons) -> Vec<&'a String> {
-        let mut v = Vec::new();
+    pub fn unfold_models(&self, defs: &Definitons) -> HashSet<String> {
+        let mut s = HashSet::new();
         if let Self::Model(m) = self {
-            v.push(m);
+            s.insert(m.clone());
             for (_, ty) in &defs.models[m].params {
-                let mut w = ty.unfold_models(defs);
-                v.append(&mut w);
+                for v in ty.unfold_models(defs) {
+                    s.insert(v);
+                }
             }
         }
 
-        return v;
+        return s;
     }
 
     pub fn contains_into(&self, defs: &Definitons) -> bool {

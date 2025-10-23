@@ -293,10 +293,10 @@ impl Definitons {
 }
 
 pub trait Generator {
-    fn generate_endpoint_header(&self) -> Code {
+    fn generate_endpoint_header(&self, defs: &Definitons) -> Code {
         return Code::new();
     }
-    fn generate_model_header(&self) -> Code {
+    fn generate_model_header(&self, defs: &Definitons) -> Code {
         return Code::new();
     }
 

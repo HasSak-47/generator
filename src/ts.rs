@@ -113,28 +113,6 @@ impl TS {
         };
     }
 
-    fn handle_singature_for_request(&self, defs: &Definitons, ty: &Type) -> String {
-        return match ty {
-            Type::Primitive(p) => self.handle_primitive(p),
-            Type::Repr(r) => self.handle_repr_signature(r),
-            Type::Optional(o) => {
-                format!("{} | null", self.handle_singature_for_request(defs, &o.ty))
-            }
-            Type::Array(a) => format!("{}[]", self.handle_singature_for_request(defs, &a.ty)),
-            Type::Into(i) => format!("{}", self.handle_singature_for_request(defs, &i.from)),
-            Type::Model(m) => format!("{m}",),
-            Type::Enum(e) => match self.type_enum {
-                EnumHandling::ToType | EnumHandling::ToEnum => format!("{e}"),
-                EnumHandling::ToAlgebraic => self.generate_enum_algebra(defs.enums.get(e).unwrap()),
-                EnumHandling::ToString => {
-                    self.handle_singature_for_model(defs, &Type::string(None))
-                }
-            },
-            Type::Undetermined(u) => panic!("Undetermined: {u:?} reached a TS generator",),
-            Type::Null => format!("null",),
-        };
-    }
-
     fn get_query_code<S: AsRef<str>>(&self, name: S, ty: &Type) -> Code {
         let name = name.as_ref();
         match ty {
@@ -193,6 +171,53 @@ impl TS {
         };
     }
 
+    fn transform_type(&self, ty: &Type, defs: &Definitons) -> Type {
+        match ty {
+            Type::Array(a) => {
+                return self.transform_type(&a.ty, defs);
+            }
+            Type::Optional(o) => {
+                return self.transform_type(&o.ty, defs);
+            }
+            Type::Model(m) => {
+                return Type::Model(format!("_{m}"));
+            }
+            Type::Into(i) => return *i.from.clone(),
+            _ => unreachable!(),
+        }
+    }
+
+    fn generate_request_models(&self, defs: &Definitons) -> Code {
+        let mut code = Code::new();
+        for (model_name, model) in &defs.models {
+            let ty = Type::Model(model_name.clone());
+            if ty.contains_into(defs) {
+                let mut translated = Model { params: Vec::new() };
+                for (pname, pty) in &model.params {
+                    if pty.contains_into(defs) {
+                        let name = format!("_{pname}");
+                        let ty = self.transform_type(pty, defs);
+                        translated.params.push((name, ty));
+                    } else {
+                        translated.params.push((pname.clone(), pty.clone()));
+                    }
+                }
+
+                let name = format!("_{model_name}");
+                code.flat_add_code(self._handle_model(name.as_str(), &translated, defs, false));
+            }
+        }
+        return code;
+    }
+
+    fn generate_request_transitions(&self, defs: &Definitons) -> Code {
+        let mut code = Code::new();
+        code.flat_add_code(self.generate_request_models(defs));
+        // TODO: add functions
+
+        return code;
+    }
+
     fn validate_param(&self, name: &String, _expected_type: &Type, return_type: &String) -> Code {
         let mut code = Code::new_child(format!("if(j.{name} === undefined)"));
         code.add_child(self.handle_error(
@@ -202,20 +227,14 @@ impl TS {
 
         return code;
     }
-}
 
-impl Generator for TS {
-    fn generate_endpoint_header(&self) -> Code {
-        if let ErrorHandling::Result = self.error_handling {
-            return Code::new_child("import Result from '@/utils/result'".to_string());
-        } else {
-            return Code::new();
-        }
-    }
-
-    fn handle_model(&self, name: &str, model: &Model, defs: &Definitons) -> Code {
+    fn _handle_model(&self, name: &str, model: &Model, defs: &Definitons, export: bool) -> Code {
         let mut code = Code::new();
-        let type_decl = code.add_child(format!("type {} = {{", name));
+        let type_decl = code.add_child(format!(
+            "{}type {} = {{",
+            if export { "export " } else { "" },
+            name
+        ));
         for (name, ty) in &model.params {
             type_decl.add_child(format!(
                 "{name}: {};",
@@ -226,6 +245,23 @@ impl Generator for TS {
 
         return code;
     }
+}
+
+impl Generator for TS {
+    fn generate_endpoint_header(&self, defs: &Definitons) -> Code {
+        let mut code = Code::new();
+        if let ErrorHandling::Result = self.error_handling {
+            code.add_child("import Result from '@/utils/result'".to_string());
+        }
+
+        code.flat_add_code(self.generate_request_transitions(defs));
+
+        return code;
+    }
+
+    fn handle_model(&self, name: &str, model: &Model, defs: &Definitons) -> Code {
+        return self._handle_model(name, model, defs, true);
+    }
 
     fn handle_enum(&self, name: &str, e: &crate::dsl::Enum) -> Code {
         match self.type_enum {
@@ -233,7 +269,10 @@ impl Generator for TS {
                 return Code::new();
             }
             EnumHandling::ToType => {
-                return Code::new_child(format!("type {name} = {}", self.generate_enum_algebra(e)));
+                return Code::new_child(format!(
+                    "export type {name} = {}",
+                    self.generate_enum_algebra(e)
+                ));
             }
             EnumHandling::ToString | EnumHandling::ToAlgebraic => {
                 return Code::new();
@@ -245,7 +284,7 @@ impl Generator for TS {
         let mut code = Code::new();
         let mut function_decl = format!("export async function {}(", name);
         for (name, ty) in &endpoint.params {
-            if ty.contains_into(defs) {
+            if !ty.contains_into(defs) {
                 function_decl +=
                     format!("_{name}: {}, ", self.handle_singature_for_model(defs, &ty)).as_str();
             } else {
@@ -257,14 +296,7 @@ impl Generator for TS {
         let function = code.add_child(function_decl);
         function.end_code = "}".to_string();
 
-        for (name, ty) in &endpoint.params {
-            if ty.contains_into(defs) {
-                function.add_child(format!(
-                    "const {name} = {};",
-                    self.get_convertion_string(name, &ty, defs)
-                ));
-            }
-        }
+        // TODO: add transition calls
 
         let mut has_query = false;
         let mut query = Code::new_child("const searchParams = new URLSearchParams();".to_string());
