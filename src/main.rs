@@ -24,9 +24,6 @@ struct Cli {
     #[arg(short = 'S', long, default_value_t = false)]
     pub split: bool,
 
-    #[arg(short, long, default_value_t = false)]
-    pub keep_between: bool,
-
     #[arg(short = 'P', long)]
     pub prefix: Option<String>,
 
@@ -98,8 +95,8 @@ fn main() -> Result<()> {
         add_models(&mut model_code);
         add_endpoints(&mut endpoint_code);
 
-        let model_code = model_code.collapse_root("\t", !cli.keep_between);
-        let endpoint_code = endpoint_code.collapse_root("\t", !cli.keep_between);
+        let model_code = model_code.collapse_root("\t");
+        let endpoint_code = endpoint_code.collapse_root("\t");
 
         let mut model_path = cli.path.clone();
         model_path.push(format!("{prefix}models"));
@@ -124,7 +121,7 @@ fn main() -> Result<()> {
         add_models(&mut code);
         add_endpoints(&mut code);
 
-        let code = code.collapse_root("\t", !cli.keep_between);
+        let code = code.collapse_root("\t");
         let mut path = cli.path.clone();
 
         path.push(format!("{prefix}generted"));

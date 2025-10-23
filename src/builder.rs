@@ -49,26 +49,26 @@ impl Code {
 
     /// Collapse the tree into a single string while treating the current node as indentation level 0.
     /// NOTE: this doesn't add 1 to a childs level because the level of the childs must be 0
-    pub fn collapse_root<S: AsRef<str>>(&self, pad: S, skip_empty: bool) -> String {
+    pub fn collapse_root<S: AsRef<str>>(&self, pad: S) -> String {
         let pad = pad.as_ref();
         let mut code = String::new();
 
         for child in &self.childs {
-            code += child._collapse(0, pad, skip_empty).as_str();
+            code += child._collapse(0, pad).as_str();
         }
 
         return code;
     }
 
-    fn _collapse<S: AsRef<str>>(&self, level: usize, pad: S, skip_empty: bool) -> String {
+    fn _collapse<S: AsRef<str>>(&self, level: usize, pad: S) -> String {
         let pad = pad.as_ref();
         let mut code = String::new();
 
-        if !skip_empty || self.code.len() > 0 {
+        if self.code.len() > 0 {
             code += format!("{}{}\n", pad.repeat(level), self.code).as_str();
         }
         for child in &self.childs {
-            code += child._collapse(level + 1, pad, skip_empty).as_str();
+            code += child._collapse(level + 1, pad).as_str();
         }
         if self.end_code.len() > 0 {
             code += format!("{}{}\n", pad.repeat(level), self.end_code).as_str();
