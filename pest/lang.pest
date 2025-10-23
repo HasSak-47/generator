@@ -3,11 +3,13 @@ definitions = {
 }
 
 model = {
-    "model" ~ name ~ "{" ~ member_field ~ ("," ~ member_field)* ~ ","? ~ "}"
+    "model" ~ name ~ model_extension? ~ "{" ~ member_field ~ ("," ~ member_field)* ~ ","? ~ "}"
 }
 
+model_extension = @{ ":" ~ name }
+
 enums = {
-    "enum" ~ name ~ "{" ~ string ~ ("," ~ string)* ~ ","? ~ "}"
+    "enum" ~ name ~ "{" ~ value ~ ("," ~ value)* ~ ","? ~ "}"
 }
 
 end_point = {
@@ -20,23 +22,34 @@ operation      =  { "get" | "post" | "put" }
 path = ${ "\"" ~ inner ~ "\"" }
 
 member_field = ${ name ~ " "* ~ ":" ~ " "* ~ ty }
-ty           = ${ (into_type | repr_type | primitive_type | null_type | complex_type) ~ weird_mark* }
+ty           = ${ (map_type | value_type | sum_type | into_type | repr_type | primitive_type | null_type | complex_type) ~ weird_mark* }
 into_type    = ${ primitive_type ~ " "* ~ "as" ~ " "* ~ repr_type }
 
+map_type     = ${ "<" ~ " "* ~ primitive_type ~ " "* ~ "," ~ " "* ~ ty ~ " "* ~ ">" }
 complex_type = ${ name }
 
+value_type  = ${ value }
+sum_type    =  { "(" ~ ty ~ "or" ~ ty ~ ")"}
 weird_mark  = ${ (option_mark | array_mark) }
 option_mark = @{ "?" }
 array_mark  =  { "[" ~ prec? ~ "]" }
 
 repr_type      = ${ repr_root ~ ("_" ~ prec)? }
-repr_root      =  { "datetime" }
+repr_root      = ${ datetime }
+
+datetime       =  { "datetime" ~ ("@" ~ name)?}
+
 primitive_type = ${ praw | pprec ~ ("_" ~ prec)? }
 praw           =  { "bool" }
 pprec          =  { "int" | "uint" | "float" | "string" }
 
 null_type = { "null" }
 
+value  = ${ string | int | float | bool }
+bool   = @{ "true" | "false" }
+float  = @{ sign? ~ (ASCII_DIGIT)+ ~ ("." ~ ASCII_DIGIT*)?}
+int    = @{ sign? ~ (ASCII_DIGIT)+}
+sign   = @{ "-" | "+"}
 name   = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")+ }
 prec   = @{ ASCII_DIGIT+ }
 string = ${ "\"" ~ inner ~ "\"" }
