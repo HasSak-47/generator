@@ -1,0 +1,15 @@
+model Used {
+    state: "used",
+    id: uint,
+    by: string,
+}
+
+model Down {
+    state: "down",
+    by: string,
+}
+
+model State{
+    state: (Used or Down),
+    id: uint,
+}

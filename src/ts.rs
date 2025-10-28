@@ -59,10 +59,10 @@ impl Display for ErrorHandling {
 #[derive(Parser, Clone)]
 pub struct TS {
     #[arg(short, long, default_value_t = ErrorHandling::Raise)]
-    error_handling: ErrorHandling,
+    pub error_handling: ErrorHandling,
 
     #[arg(short, long, default_value_t = EnumHandling::ToType)]
-    type_enum: EnumHandling,
+    pub type_enum: EnumHandling,
 }
 
 impl TS {

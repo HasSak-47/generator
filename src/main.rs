@@ -1,8 +1,10 @@
-mod builder;
-mod dsl;
-mod python;
-mod ts;
-mod types;
+pub mod builder;
+pub mod dsl;
+pub mod python;
+#[cfg(test)]
+mod tests;
+pub mod ts;
+pub mod types;
 
 use crate::{
     builder::Code,
