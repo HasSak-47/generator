@@ -2,8 +2,10 @@ use std::fmt::Display;
 
 use crate::{
     builder::Code,
-    dsl::{Definitons, EndPoint, EndPointParamKind, Enum, Generator, Model},
-    types::{PrimitiveType, Repr, SumType, Type},
+    parser::{
+        dsl::{Definitons, EndPoint, EndPointParamKind, Enum, Generator, Model},
+        types::{PrimitiveType, Repr, SumType, Type},
+    },
 };
 
 use clap::{Parser, ValueEnum};
@@ -327,7 +329,7 @@ impl Generator for TS {
         return self._handle_model(name, model, defs, true);
     }
 
-    fn handle_enum(&self, name: &str, e: &crate::dsl::Enum) -> Code {
+    fn handle_enum(&self, name: &str, e: &Enum) -> Code {
         match self.type_enum {
             EnumHandling::ToEnum => {
                 return Code::new_segment();

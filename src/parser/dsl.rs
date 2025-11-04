@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Display, fs::File, io::Read, path::Path, str::FromStr};
 
-use crate::{builder::Code, types::*};
+use crate::{builder::Code, parser::types::*};
 use anyhow::Result;
 use pest::{Parser, iterators::Pair};
 use pest_derive::Parser;

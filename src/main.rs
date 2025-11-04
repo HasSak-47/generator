@@ -1,14 +1,12 @@
 mod builder;
-mod dsl;
-mod python;
+mod generators;
+mod parser;
 #[cfg(test)]
 mod tests;
-mod ts;
-mod types;
 
 use crate::{
     builder::Code,
-    dsl::{Definitons, Generator},
+    parser::dsl::{Definitons, Generator},
 };
 
 use std::{fs::File, io::Write, path::PathBuf};
@@ -16,7 +14,7 @@ use std::{fs::File, io::Write, path::PathBuf};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
-use crate::{python::FastApi, ts::TS};
+use crate::generators::{python::FastApi, ts::TS};
 
 #[derive(Parser)]
 struct Cli {

@@ -1,7 +1,9 @@
 use crate::{
     builder::Code,
-    dsl::{Definitons, EndPoint, Generator, Model},
-    types::{PrimitiveType, Repr, Type},
+    parser::{
+        dsl::{Definitons, EndPoint, Enum, Generator, Model},
+        types::{PrimitiveType, Repr, Type},
+    },
 };
 
 use clap::{Parser, ValueEnum};
@@ -86,7 +88,7 @@ impl Generator for FastApi {
     }
 
     #[allow(unused_variables)]
-    fn handle_enum(&self, name: &str, model: &crate::dsl::Enum) -> Code {
+    fn handle_enum(&self, name: &str, model: &Enum) -> Code {
         if let EnumHandling::ToString = self.enum_handling {
             return Code::new_segment();
         }

@@ -4,7 +4,7 @@ use std::{
     fmt::{Debug, Display},
 };
 
-use crate::dsl::Definitons;
+use crate::parser::dsl::Definitons;
 
 #[derive(PartialEq, Clone)]
 pub enum PrimitiveType {

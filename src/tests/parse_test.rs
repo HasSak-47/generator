@@ -1,6 +1,6 @@
 #![allow(unused_imports)]
 
-use crate::{builder::*, dsl::*, ts};
+use crate::{builder::*, generators::*, parser::dsl::*};
 use anyhow::Result;
 use std::{env::current_dir, fs::File, io::Write};
 
