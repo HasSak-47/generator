@@ -15,7 +15,7 @@ model Baz{
     end: string as datetime,
 }
 
-put_example(name: string[], date: string as datetime[]) @get "/message/"
+put_example(name: string, date: string as datetime) @get "/message/"
 get_bar_state(name: string) @get "/bar/{name}/state" -> Bar
 get_bar_id(bar: Bar) @get "/bar/id" -> uint
 get_bar_from_baz(baz: Baz) @get "/bar/from/baz" -> string

@@ -1,6 +1,8 @@
 mod builder;
 mod dsl;
 mod python;
+#[cfg(test)]
+mod tests;
 mod ts;
 mod types;
 

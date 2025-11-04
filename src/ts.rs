@@ -56,7 +56,7 @@ impl Display for ErrorHandling {
     }
 }
 
-#[derive(Parser, Clone)]
+#[derive(Parser, Clone, Default)]
 pub struct TS {
     #[arg(short, long, default_value_t = ErrorHandling::Raise)]
     error_handling: ErrorHandling,
@@ -141,7 +141,7 @@ impl TS {
         match ty {
             Type::Into(into) => {
                 return match into.into {
-                    Repr::Datetime => format!("{name}.toISOString()"),
+                    Repr::Datetime => format!("_{name}.toISOString()"),
                 };
             }
             Type::Optional(opt) => {
@@ -152,12 +152,12 @@ impl TS {
             }
             Type::Array(arr) => {
                 format!(
-                    "{name}.map(e => {{ return {}}})",
+                    "_{name}.map(e => {{ return {}}})",
                     self.get_convertion_string("e", &arr.ty, defs)
                 )
             }
             Type::Model(model) => {
-                format!("transform_{model}({name})")
+                format!("transform_{model}(_{name})")
             }
             _ => name.to_string(),
         }
@@ -167,7 +167,7 @@ impl TS {
         return match self.error_handling {
             ErrorHandling::Result => format!("return Result.Err<{ty}, Error>({err});"),
             ErrorHandling::Pair => format!("return [{err}, null]);"),
-            ErrorHandling::Raise => format!("raise {err};"),
+            ErrorHandling::Raise => format!("throw {err};"),
         };
     }
 
@@ -233,17 +233,17 @@ impl TS {
         let mut code = Code::new_segment();
 
         for (model_name, model) in &defs.models {
-            let mut segment = code.create_child_segment();
+            let segment = code.create_child_segment();
             let ty = Type::Model(model_name.clone());
             if !ty.contains_into(defs) {
                 continue;
             }
 
-            code.add_line(format!(
+            segment.add_line(format!(
                 "function transform_{model_name}(_m: {model_name}){{"
             ));
 
-            let func_body = code.create_child_block();
+            let func_body = segment.create_child_block();
             func_body.add_line("return {".to_string());
             let obj_body = func_body.create_child_block();
 
@@ -255,6 +255,7 @@ impl TS {
             }
             let _ = obj_body;
             func_body.add_line(format!("}} as _{model_name};"));
+            segment.add_line("}".to_string());
         }
 
         return code;
@@ -265,7 +266,8 @@ impl TS {
         // TODO: add type guards
         let mut code = Code::new_segment();
         code.add_line(format!("if(j.{name} === undefined)"));
-        code.add_line(self.handle_error(
+        let body = code.create_child_block();
+        body.add_line(self.handle_error(
             &format!("new Error('field {name} is undefined')"),
             &return_type,
         ));
@@ -398,11 +400,12 @@ impl Generator for TS {
                     body_code.add_line(format!("{name}: {name}"));
                 }
             }
+            fetch_body.add_line("}),".to_string());
 
-            fetch_code.add_line("headers: {".to_string());
-            let header_code = fetch_code.create_child_block();
+            fetch_body.add_line("headers: {".to_string());
+            let header_code = fetch_body.create_child_block();
             header_code.add_line("'Content-Type': 'application/json'".to_string());
-            fetch_code.add_line("}".to_string());
+            fetch_body.add_line("}".to_string());
         }
         fetch_code.add_line("});".to_string());
         func_body.add_child(fetch_code);
@@ -419,6 +422,7 @@ impl Generator for TS {
 
         if let Type::Null = endpoint.return_type {
             func_body.add_line(self.handle_ok(&"null".to_string(), &return_type));
+            code.add_line("}".to_string());
             return code;
         }
 

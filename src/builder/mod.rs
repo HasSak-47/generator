@@ -70,10 +70,65 @@ impl Code {
     }
 
     pub fn collapse_root<S: AsRef<str>>(&mut self, _ind: S) -> String {
-        todo!()
+        return self._collapse_root(_ind, 0, 0);
+    }
+
+    fn _collapse_root<S: AsRef<str>>(
+        &mut self,
+        ind: S,
+        depth: usize,
+        child_depth: usize,
+    ) -> String {
+        let ind = ind.as_ref();
+        match self {
+            Code::Line(s) => return format!("{}{s}\n", ind.repeat(depth)),
+            Code::Segment { childs } => {
+                let mut buf = String::new();
+                // buf += format!("//{}SEGMENT {child_depth}\n", ">".repeat(child_depth)).as_str();
+                for child in childs {
+                    if child.has_code() {
+                        buf += child._collapse_root(ind, depth, child_depth + 1).as_str();
+                    }
+                }
+                buf += "\n";
+                // buf += format!("//{}SEGMENT {child_depth}\n", "<".repeat(child_depth)).as_str();
+
+                return buf;
+            }
+            Code::Block { childs } => {
+                let mut buf = String::new();
+                // buf += format!("//{}body {child_depth}\n", ">".repeat(child_depth)).as_str();
+                for child in childs {
+                    if child.has_code() {
+                        buf += child
+                            ._collapse_root(ind, depth + 1, child_depth + 1)
+                            .as_str();
+                    }
+                }
+                // buf += format!("//{}BODY {child_depth}\n", "<".repeat(child_depth)).as_str();
+                return buf;
+            }
+        };
     }
 
     pub fn has_code(&self) -> bool {
-        todo!()
+        match self {
+            Code::Line(s) => return !s.is_empty(),
+            Self::Segment { childs } => {
+                for child in childs {
+                    if child.has_code() {
+                        return true;
+                    }
+                }
+            }
+            Self::Block { childs } => {
+                for child in childs {
+                    if child.has_code() {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 }
