@@ -68,6 +68,7 @@ impl FastApi {
             },
             Type::Undetermined(u) => panic!("Undetermined: {u:?} reached a FastApi generator",),
             Type::Null => format!("None",),
+            e => unimplemented!("{e:?}"),
         };
     }
 }

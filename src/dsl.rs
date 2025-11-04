@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display, fs::File, io::Read, path::Path};
+use std::{collections::HashMap, fmt::Display, fs::File, io::Read, path::Path, str::FromStr};
 
 use crate::{builder::Code, types::*};
 use anyhow::Result;
@@ -110,7 +110,7 @@ fn handle_primitive_type<'a>(p: Pair<'a, Rule>) -> Type {
 }
 
 /// Recursively walk the parsed type expression and build the semantic `Type`.
-fn handle_type<'a>(p: Pair<'a, Rule>) -> Type {
+fn handle_type<'a>(p: Pair<'a, Rule>) -> Result<Type> {
     assert_eq!(p.as_rule(), Rule::ty);
     let mut iter = p.into_inner();
     let next = iter.next().unwrap();
@@ -134,6 +134,27 @@ fn handle_type<'a>(p: Pair<'a, Rule>) -> Type {
                 },
             )
         }
+        Rule::value_type => {
+            let mut inner = next.into_inner();
+            let kind = inner.next().unwrap().into_inner().next().unwrap();
+            let value = kind.as_str();
+            return Ok(match kind.as_rule() {
+                Rule::int => Type::Literal(LiteralType::Int(i64::from_str_radix(value, 10)?)),
+                Rule::uint => Type::Literal(LiteralType::Uint(u64::from_str_radix(value, 10)?)),
+                Rule::float => Type::Literal(LiteralType::Float(f64::from_str(value)?)),
+                Rule::string => Type::Literal(LiteralType::String(value.to_string())),
+                Rule::bool => Type::Literal(LiteralType::Bool(bool::from_str(value)?)),
+                _ => unreachable!(),
+            });
+        }
+        Rule::sum_type => {
+            let inner = next.into_inner();
+            let mut types = Vec::new();
+            for ty in inner {
+                types.push(handle_type(ty)?);
+            }
+            return Ok(Type::Sum(SumType::new(types)));
+        }
         e => unreachable!("unreachable rule reached? : {e:?}"),
     };
 
@@ -155,17 +176,17 @@ fn handle_type<'a>(p: Pair<'a, Rule>) -> Type {
         }
     }
 
-    return ty;
+    return Ok(ty);
 }
 
-fn handle_member_field<'a>(p: Pair<'a, Rule>) -> (String, Type) {
+fn handle_member_field<'a>(p: Pair<'a, Rule>) -> Result<(String, Type)> {
     assert!(p.as_rule() == Rule::member_field);
 
     let mut name = String::new();
     for inner in p.into_inner() {
         match inner.as_rule() {
             Rule::name => name = inner.as_str().to_string(),
-            Rule::ty => return (name, handle_type(inner)),
+            Rule::ty => return Ok((name, handle_type(inner)?)),
             _ => unreachable!("not a definition file!"),
         }
     }
@@ -186,20 +207,22 @@ impl Definitons {
         let enum_names: Vec<String> = self.enums.keys().map(|k| k.clone()).collect();
         for (_, model) in self.models.iter_mut() {
             for (_, param) in model.params.iter_mut() {
+                let param_name = param.to_string();
                 let found = param.determine_enum(&enum_names).is_ok()
                     | param.determine_model(&model_names).is_ok();
                 if !found {
-                    panic!("could not expand type: {self:?}");
+                    panic!("could not expand type {param_name}: {self:?}");
                 }
             }
         }
 
         for (_, endpoint) in self.end_points.iter_mut() {
             for (_, param) in endpoint.params.iter_mut() {
+                let param_name = param.to_string();
                 let found = param.determine_enum(&enum_names).is_ok()
                     | param.determine_model(&model_names).is_ok();
                 if !found {
-                    panic!("could not expand type: {self:?}");
+                    panic!("could not expand type {param_name}: {self:?}");
                 }
             }
             let found = endpoint.return_type.determine_enum(&enum_names).is_ok()
@@ -236,7 +259,7 @@ impl Definitons {
 
                     for pair in iter {
                         match pair.as_rule() {
-                            Rule::member_field => model.params.push(handle_member_field(pair)),
+                            Rule::member_field => model.params.push(handle_member_field(pair)?),
                             _ => unreachable!("idk how you got here??"),
                         }
                     }
@@ -263,7 +286,7 @@ impl Definitons {
                     while iter.peek().unwrap().as_rule() == Rule::member_field {
                         end_point
                             .params
-                            .push(handle_member_field(iter.next().unwrap()));
+                            .push(handle_member_field(iter.next().unwrap())?);
                     }
 
                     match iter.next().unwrap().into_inner().next().unwrap().as_str() {
@@ -282,7 +305,7 @@ impl Definitons {
                         .as_str()
                         .to_string();
                     if let Some(o) = iter.next() {
-                        end_point.return_type = handle_type(o);
+                        end_point.return_type = handle_type(o)?;
                     }
                     defs.end_points.insert(name, end_point);
                 }
@@ -363,7 +386,7 @@ mod test {
 
             for (s, expected) in matches {
                 let parse = LangParser::parse(Rule::ty, s)?.next().unwrap();
-                let ty = handle_type(parse);
+                let ty = handle_type(parse)?;
                 assert_eq!(ty, *expected, "Failed for {s}");
             }
         }
@@ -390,7 +413,7 @@ mod test {
 
             for (s, expected) in matches {
                 let parse = LangParser::parse(Rule::ty, s)?.next().unwrap();
-                let ty = handle_type(parse);
+                let ty = handle_type(parse)?;
                 assert_eq!(ty, *expected, "Failed for {s}");
             }
         }

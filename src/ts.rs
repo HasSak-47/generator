@@ -3,7 +3,7 @@ use std::fmt::Display;
 use crate::{
     builder::Code,
     dsl::{Definitons, EndPoint, EndPointParamKind, Enum, Generator, Model},
-    types::{PrimitiveType, Repr, Type},
+    types::{PrimitiveType, Repr, SumType, Type},
 };
 
 use clap::{Parser, ValueEnum};
@@ -59,10 +59,10 @@ impl Display for ErrorHandling {
 #[derive(Parser, Clone, Default)]
 pub struct TS {
     #[arg(short, long, default_value_t = ErrorHandling::Raise)]
-    error_handling: ErrorHandling,
+    pub error_handling: ErrorHandling,
 
     #[arg(short, long, default_value_t = EnumHandling::ToType)]
-    type_enum: EnumHandling,
+    pub type_enum: EnumHandling,
 }
 
 impl TS {
@@ -74,6 +74,16 @@ impl TS {
             PT::String(_) => "string",
         }
         .to_string();
+    }
+
+    fn generate_sum_type(&self, e: &SumType) -> String {
+        let mut poss = e.tys.iter();
+        let mut s = format!("{}", poss.next().unwrap());
+        for param in poss {
+            s += format!(" | {param}").as_str();
+        }
+
+        s
     }
 
     fn generate_enum_algebra(&self, e: &Enum) -> String {
@@ -110,6 +120,11 @@ impl TS {
             },
             Type::Undetermined(u) => panic!("Undetermined: {u:?} reached a TS generator",),
             Type::Null => format!("null",),
+            Type::Sum(sum) => self.generate_sum_type(sum),
+            Type::Literal(lit) => {
+                format!("{lit}")
+            }
+            e => unimplemented!("{e:?}"),
         };
     }
 
