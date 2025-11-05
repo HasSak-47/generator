@@ -1,7 +1,7 @@
 use crate::{
     builder::Code,
     parser::{
-        dsl::{Definitons, EndPoint, Enum, Generator, Model},
+        dsl::{Definitons, EndPoint, Generator},
         types::{PrimitiveType, Repr, Type},
     },
 };

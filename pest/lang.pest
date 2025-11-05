@@ -5,7 +5,7 @@ definitions = {
 ty_definition = { "type" ~ name ~ "=" ~ ty }
 
 model_definition = {
-    "type" ~ name ~ model_extension? ~ "=" ~ model_type
+    "type" ~ name ~ model_extension? ~ "=" ~ struct_type
 }
 
 model_extension = @{ ":" ~ name }
@@ -19,9 +19,9 @@ operation      =  { "get" | "post" | "put" }
 
 path = ${ "\"" ~ inner ~ "\"" }
 
-ty = ${ (model_type | sum_type | map_type | value_type | into_type | repr_type | primitive_type | null_type | named_type) ~ weird_mark* }
+ty = { (union_type | struct_type | map_type | value_type | into_type | repr_type | primitive_type | null_type | named_type) ~ weird_mark* }
 
-model_type = {
+struct_type = {
     "{" ~ member_field ~ ("," ~ member_field)* ~ ","? ~ "}"
 }
 
@@ -32,8 +32,8 @@ map_type   = ${ "<" ~ " "* ~ primitive_type ~ " "* ~ "," ~ " "* ~ ty ~ " "* ~ ">
 named_type = ${ name }
 
 value_type  = ${ value }
-sum_type    = ${ sum_tag ~ "{" ~ ty ~ " "* ~ "|" ~ " "* ~ ty ~ "}" }
-sum_tag     =  { "inner" | "outer" }
+union_type    = ${ union_tag? ~ "{" ~ ty ~ " "* ~ "|" ~ " "* ~ ty ~ "}" }
+union_tag     =  { "inner" | "outer" }
 weird_mark  = ${ (option_mark | array_mark) }
 option_mark = @{ "?" }
 array_mark  =  { "[" ~ prec? ~ "]" }
@@ -50,9 +50,9 @@ pprec          =  { "int" | "uint" | "float" | "string" }
 
 null_type = { "null" }
 
-value  = ${ string | uint | int | float | bool }
+value  = ${ string | float | int | uint | bool }
 bool   = @{ "true" | "false" }
-float  = @{ sign? ~ (ASCII_DIGIT)+ ~ ("." ~ ASCII_DIGIT*)? }
+float  = @{ sign? ~ (ASCII_DIGIT)+ ~ "." ~ ASCII_DIGIT*? }
 int    = @{ sign? ~ (ASCII_DIGIT)+ }
 uint   = @{ (ASCII_DIGIT)+ }
 sign   = @{ "-" | "+" }
@@ -66,5 +66,6 @@ char   =  {
   | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
 }
 
+WHITE_SPACE = _{ " " | "\t" | "\n" }
 WHITESPACE = _{ " " | "\t" | "\n" }
 COMMENT    = _{ "#" ~ (!"\n" ~ ANY)* }

@@ -3,7 +3,7 @@ use std::fmt::Display;
 use crate::{
     builder::Code,
     parser::{
-        dsl::{Definitons, EndPoint, EndPointParamKind, Enum, Generator},
+        dsl::{Definitons, EndPoint, EndPointParamKind, Generator},
         types::{PrimitiveType, Repr, StructType, Type, UnionType},
     },
 };
@@ -88,15 +88,15 @@ impl TS {
         s
     }
 
-    fn generate_enum_algebra(&self, e: &Enum) -> String {
-        let mut poss = e.params.iter();
-        let mut s = format!("{}", poss.next().unwrap());
-        for param in poss {
-            s += format!(" | {param}").as_str();
-        }
+    // fn generate_enum_algebra(&self, e: &Enum) -> String {
+    //     let mut poss = e.params.iter();
+    //     let mut s = format!("{}", poss.next().unwrap());
+    //     for param in poss {
+    //         s += format!(" | {param}").as_str();
+    //     }
 
-        s
-    }
+    //     s
+    // }
 
     fn handle_repr_signature(&self, r: &Repr) -> String {
         match r {

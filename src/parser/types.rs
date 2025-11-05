@@ -154,19 +154,20 @@ impl Type {
     }
 
     /// Recursively collect every model referenced by this type (including nested fields).
-    // pub fn unfold_models(&self, defs: &Definitons) -> HashSet<String> {
-    //     let mut s = HashSet::new();
-    //     if let Self::Struct(m) = self {
-    //         s.insert(m.clone());
-    //         for (_, ty) in &defs.models[m].members {
-    //             for v in ty.unfold_models(defs) {
-    //                 s.insert(v);
-    //             }
-    //         }
-    //     }
+    pub fn unfold_models(&self, defs: &Definitons) {
+        todo!()
+        // let mut s = HashSet::new();
+        // if let Self::Struct(m) = self {
+        //     s.insert(m.clone());
+        //     for (_, ty) in &defs.models[m].members {
+        //         for v in ty.unfold_models(defs) {
+        //             s.insert(v);
+        //         }
+        //     }
+        // }
 
-    //     return s;
-    // }
+        // return s;
+    }
 
     /// Returns true if the type or any nested field needs an `Into` conversion before transport.
     pub fn contains_into(&self, defs: &Definitons) -> bool {
@@ -263,10 +264,10 @@ impl Display for Repr {
 impl Display for LiteralType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Int(v) => write!(f, "{v}")?,
-            Self::Uint(v) => write!(f, "{v}")?,
-            Self::Float(v) => write!(f, "{v}")?,
-            Self::String(v) => write!(f, "{v}")?,
+            Self::Int(v) => write!(f, "{v}i")?,
+            Self::Uint(v) => write!(f, "{v}u")?,
+            Self::Float(v) => write!(f, "{v}f")?,
+            Self::String(v) => write!(f, "'{v}'")?,
             Self::Bool(v) => write!(f, "{v}")?,
         }
 
@@ -337,11 +338,11 @@ impl Debug for Repr {
 impl Debug for LiteralType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Int(v) => write!(f, "{v}")?,
-            Self::Uint(v) => write!(f, "{v}")?,
-            Self::Float(v) => write!(f, "{v}")?,
+            Self::Int(v) => write!(f, "{v}i")?,
+            Self::Uint(v) => write!(f, "{v}u")?,
+            Self::Float(v) => write!(f, "{v}f")?,
             Self::String(v) => write!(f, "{v}")?,
-            Self::Bool(v) => write!(f, "{v}")?,
+            Self::Bool(v) => write!(f, "'{v}'")?,
         }
 
         return Ok(());

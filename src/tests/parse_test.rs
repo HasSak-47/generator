@@ -9,39 +9,17 @@ fn parse_test() -> Result<()> {
     let defs = Definitons::get_definitions("./unit.gdsl")?;
     let generator = Box::new(ts::TS::default());
 
-    let add_models = |code: &mut Code| {
-        let mut names: Vec<_> = defs.models.keys().collect();
-        names.sort();
-        for name in names {
-            let model = &defs.models[name];
-            let g = generator.handle_model(name, model, &defs);
-            if g.has_code() {
-                code.add_line(String::new());
-                code.add_child(g);
-            }
-        }
-    };
-
-    let add_endpoints = |code: &mut Code| {
-        let mut names: Vec<_> = defs.end_points.keys().collect();
-        names.sort();
-        for name in names {
-            let endpoint = &defs.end_points[name];
-            let g = generator.handle_endpoint(name, endpoint, &defs);
-            if g.has_code() {
-                code.add_line(String::new());
-                code.add_child(g);
-            }
-        }
-    };
-
     let mut code = Code::new_segment();
 
     code.add_child(generator.generate_model_header(&defs));
     code.add_child(generator.generate_endpoint_header(&defs));
 
-    add_models(&mut code);
-    add_endpoints(&mut code);
+    for (name, ty) in &defs.types {
+        code.add_child(generator.handle_type(name.as_str(), &ty, &defs));
+    }
+    for (name, endpoint) in &defs.end_points {
+        code.add_child(generator.handle_endpoint(name.as_str(), &endpoint, &defs));
+    }
 
     let code = code.collapse_root("\t");
 

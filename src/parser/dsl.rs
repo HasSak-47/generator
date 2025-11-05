@@ -5,17 +5,6 @@ use anyhow::Result;
 use pest::{Parser, iterators::Pair};
 use pest_derive::Parser;
 
-// TODO: merge Model and Enum with Type
-#[derive(Debug, Default)]
-pub struct Model {
-    pub params: Vec<(String, Type)>,
-}
-
-#[derive(Debug, Default)]
-pub struct Enum {
-    pub params: Vec<String>,
-}
-
 #[derive(Debug, Default)]
 pub enum EndPointMethod {
     #[default]
@@ -141,18 +130,28 @@ fn handle_type<'a>(p: Pair<'a, Rule>) -> Result<Type> {
                 Rule::int => Type::Literal(LiteralType::Int(i64::from_str_radix(value, 10)?)),
                 Rule::uint => Type::Literal(LiteralType::Uint(u64::from_str_radix(value, 10)?)),
                 Rule::float => Type::Literal(LiteralType::Float(f64::from_str(value)?)),
-                Rule::string => Type::Literal(LiteralType::String(value.to_string())),
+                Rule::string => {
+                    let s = kind
+                        .into_inner()
+                        .next()
+                        .and_then(|s| Some(s.as_str().to_string()))
+                        .unwrap_or(String::new());
+                    Type::Literal(LiteralType::String(s))
+                }
                 Rule::bool => Type::Literal(LiteralType::Bool(bool::from_str(value)?)),
                 _ => unreachable!(),
             });
         }
-        Rule::sum_type => {
+        Rule::union_type => {
             let inner = next.into_inner();
             let mut types = Vec::new();
             for ty in inner {
                 types.push(handle_type(ty)?);
             }
             return Ok(Type::Union(UnionType::new(types)));
+        }
+        Rule::struct_type => {
+            todo!("todo handle struct type")
         }
         e => unreachable!("unreachable rule reached? : {e:?}"),
     };
@@ -321,87 +320,57 @@ pub trait Generator {
 
 #[cfg(test)]
 mod test {
+    use crate::parser::dsl;
+
     use super::*;
-
     #[test]
-    fn primitive_type_test() -> anyhow::Result<()> {
-        const PREC_PRIMITIVES: &[&str] = &["int", "uint", "float", "string"];
-        const PRIMITIVES: &[&str] = &["bool"];
-
-        fn make_prec_primitive(prim: &str, bits: Option<usize>) -> Type {
-            match prim {
-                "int" => Type::int(bits),
-                "uint" => Type::uint(bits),
-                "float" => Type::float(bits),
-                "string" => Type::string(bits),
-                _ => unreachable!(),
-            }
-        }
-
-        fn make_primitive(prim: &str) -> Type {
-            match prim {
-                "bool" => Type::bool(),
-                _ => unreachable!(),
-            }
-        }
-
-        for &prim in PREC_PRIMITIVES {
-            let matches = &[
-                (format!("{prim}_32"), make_prec_primitive(prim, Some(32))),
-                (
-                    format!("{prim}?"),
-                    Type::optional(make_prec_primitive(prim, None)),
-                ),
-                (
-                    format!("{prim}[]"),
-                    Type::array(make_prec_primitive(prim, None), None),
-                ),
-                (
-                    format!("{prim}[10]"),
-                    Type::array(make_prec_primitive(prim, None), Some(10)),
-                ),
-                (
-                    format!("{prim}[10]?"),
-                    Type::optional(Type::array(make_prec_primitive(prim, None), Some(10))),
-                ),
-                (
-                    format!("{prim}?[10]"),
-                    Type::array(Type::optional(make_prec_primitive(prim, None)), Some(10)),
-                ),
-            ];
-
-            for (s, expected) in matches {
-                let parse = LangParser::parse(Rule::ty, s)?.next().unwrap();
-                let ty = handle_type(parse)?;
-                assert_eq!(ty, *expected, "Failed for {s}");
-            }
-        }
-
-        for &prim in PRIMITIVES {
-            let matches = &[
-                // Width-specific variant (only applies to int/uint/float)
-                (format!("{prim}"), make_primitive(prim)),
-                (format!("{prim}?"), Type::optional(make_primitive(prim))),
-                (format!("{prim}[]"), Type::array(make_primitive(prim), None)),
-                (
-                    format!("{prim}[10]"),
-                    Type::array(make_primitive(prim), Some(10)),
-                ),
-                (
-                    format!("{prim}[10]?"),
-                    Type::optional(Type::array(make_primitive(prim), Some(10))),
-                ),
-                (
-                    format!("{prim}?[10]"),
-                    Type::array(Type::optional(make_primitive(prim)), Some(10)),
-                ),
-            ];
-
-            for (s, expected) in matches {
-                let parse = LangParser::parse(Rule::ty, s)?.next().unwrap();
-                let ty = handle_type(parse)?;
-                assert_eq!(ty, *expected, "Failed for {s}");
-            }
+    fn type_parsing_test() -> anyhow::Result<()> {
+        let tests = &[
+            ("int_32", Type::int(Some(32))),
+            ("string", Type::string(None)),
+            ("int?", Type::optional(Type::int(None))),
+            ("int_32[]", Type::array(Type::int(Some(32)), None)),
+            (
+                "int_32[]?",
+                Type::optional(Type::array(Type::int(Some(32)), None)),
+            ),
+            (
+                "string as datetime",
+                Type::into(Type::string(None), Repr::Datetime),
+            ),
+            (
+                "string as datetime[]",
+                Type::array(Type::into(Type::string(None), Repr::Datetime), None),
+            ),
+            ("null", Type::Null),
+            ("1", Type::Literal(LiteralType::Int(1))),
+            ("10", Type::Literal(LiteralType::Int(10))),
+            ("-0.1", Type::Literal(LiteralType::Float(-0.1))),
+            (
+                "\"string\"",
+                Type::Literal(LiteralType::String("string".to_string())),
+            ),
+            ("false", Type::Literal(LiteralType::Bool(false))),
+            ("true", Type::Literal(LiteralType::Bool(true))),
+            (
+                "{\"ok\" | \"err\"}",
+                Type::Union(UnionType {
+                    tys: vec![
+                        Type::Literal(LiteralType::String("ok".to_string())),
+                        Type::Literal(LiteralType::String("err".to_string())),
+                    ],
+                }),
+            ),
+            ("{ foo: int, bar: string as datetime? }", Type::Null),
+            (
+                "{{foo: \"ok\", bar: string} | {foo:\"err\", bar: int, baz: string?}}",
+                Type::Null,
+            ),
+        ];
+        for (text, ty) in tests {
+            let p = LangParser::parse(Rule::ty, text)?.next().unwrap();
+            let target_ty = dsl::handle_type(p)?;
+            assert_eq!(*ty, target_ty, "{text} is not {ty} {target_ty}");
         }
 
         return Ok(());
