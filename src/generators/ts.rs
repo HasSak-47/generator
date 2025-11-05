@@ -126,6 +126,7 @@ impl TS {
             Type::Literal(lit) => {
                 format!("{lit}")
             }
+            #[allow(unreachable_patterns)]
             e => unimplemented!("{e:?}"),
         };
     }
