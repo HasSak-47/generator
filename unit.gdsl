@@ -1,20 +1,18 @@
-model Used {
-    state: "used",
+type Used = {
     id: uint,
     by: string,
 }
 
-model Down {
-    state: "down",
+type Down = {
     by: string,
 }
 
-model State{
-    state: (Used | Down),
+type State = {
+    state: {Used | Down},
     id: uint,
 }
 
-model Bar{
+type Bar = {
     name: string,
     tags: string[]?,
 }

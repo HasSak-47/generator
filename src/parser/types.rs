@@ -1,8 +1,5 @@
 use anyhow::{Result, anyhow};
-use std::{
-    collections::HashSet,
-    fmt::{Debug, Display},
-};
+use std::fmt::{Debug, Display};
 
 use crate::parser::dsl::Definitons;
 
@@ -73,28 +70,45 @@ pub enum LiteralType {
 }
 
 #[derive(PartialEq, Clone)]
-pub struct SumType {
+pub struct UnionType {
     pub tys: Vec<Type>,
 }
 
-impl SumType {
+impl UnionType {
     pub fn new(tys: Vec<Type>) -> Self {
         return Self { tys };
     }
 }
 
 #[derive(PartialEq, Clone)]
+pub struct StructType {
+    pub members: Vec<(String, Type)>,
+}
+
+impl StructType {
+    pub fn new() -> Self {
+        return Self {
+            members: Vec::new(),
+        };
+    }
+
+    pub fn new_with(members: Vec<(String, Type)>) -> Self {
+        return Self { members };
+    }
+}
+
+#[derive(PartialEq, Clone)]
 pub enum Type {
+    Null,                     // null
     Literal(LiteralType),     // "ok", "err", etc etc
     Primitive(PrimitiveType), // PT
     Repr(Repr),               // RT
     Optional(OptionType),     // T?
-    Null,                     // null
     Array(ArrayType),         // T[x] singled typed arrays
-    Sum(SumType),             // T1 | T2 | ...| Tn
+    Union(UnionType),         // T1 | T2 | ...| Tn
+    Struct(StructType),       // T1 | T2 | ...| Tn
     Into(IntoType),           // T as Repr
-    Model(String),            // Name
-    Enum(String),             // Name
+    Named(String),            // Name
     Undetermined(String),     // Name
 }
 
@@ -140,19 +154,19 @@ impl Type {
     }
 
     /// Recursively collect every model referenced by this type (including nested fields).
-    pub fn unfold_models(&self, defs: &Definitons) -> HashSet<String> {
-        let mut s = HashSet::new();
-        if let Self::Model(m) = self {
-            s.insert(m.clone());
-            for (_, ty) in &defs.models[m].params {
-                for v in ty.unfold_models(defs) {
-                    s.insert(v);
-                }
-            }
-        }
+    // pub fn unfold_models(&self, defs: &Definitons) -> HashSet<String> {
+    //     let mut s = HashSet::new();
+    //     if let Self::Struct(m) = self {
+    //         s.insert(m.clone());
+    //         for (_, ty) in &defs.models[m].members {
+    //             for v in ty.unfold_models(defs) {
+    //                 s.insert(v);
+    //             }
+    //         }
+    //     }
 
-        return s;
-    }
+    //     return s;
+    // }
 
     /// Returns true if the type or any nested field needs an `Into` conversion before transport.
     pub fn contains_into(&self, defs: &Definitons) -> bool {
@@ -160,14 +174,15 @@ impl Type {
             Self::Into(_) => true,
             Self::Optional(o) => o.ty.contains_into(defs),
             Self::Array(a) => a.ty.contains_into(defs),
-            Self::Model(m) => {
-                for (_, ty) in &defs.models[m].params {
+            Self::Struct(m) => {
+                for (_, ty) in &m.members {
                     if ty.contains_into(defs) {
                         return true;
                     }
                 }
                 false
             }
+            Self::Named(name) => defs.types[name].contains_into(defs),
             _ => false,
         }
     }
@@ -186,7 +201,7 @@ impl Type {
                     *self = builder(name.clone());
                 } else {
                     return Err(anyhow!(
-                        "unknown Model/Enum found: {name} is not in {models:?}"
+                        "unknown Struct/Enum found: {name} is not in {models:?}"
                     ));
                 }
             }
@@ -194,14 +209,6 @@ impl Type {
         }
 
         return Ok(());
-    }
-
-    pub fn determine_enum(&mut self, enums: &Vec<String>) -> Result<()> {
-        return self.determine(enums, |s| Self::Enum(s));
-    }
-
-    pub fn determine_model(&mut self, models: &Vec<String>) -> Result<()> {
-        return self.determine(models, |s| Self::Model(s));
     }
 }
 
@@ -267,7 +274,7 @@ impl Display for LiteralType {
     }
 }
 
-impl Display for SumType {
+impl Display for UnionType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for ty in &self.tys {
             write!(f, "or {ty}")?;
@@ -280,15 +287,15 @@ impl Display for SumType {
 impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Sum(s) => write!(f, "{s}")?,
+            Self::Union(s) => write!(f, "{s}")?,
             Self::Literal(l) => write!(f, "{l}")?,
             Self::Primitive(p) => write!(f, "{p}")?,
             Self::Repr(r) => write!(f, "{r}")?,
             Self::Optional(o) => write!(f, "{o}")?,
             Self::Array(a) => write!(f, "{a}")?,
             Self::Into(i) => write!(f, "{i}")?,
-            Self::Model(m) => write!(f, "{m}")?,
-            Self::Enum(e) => write!(f, "{e}")?,
+            Self::Struct(m) => write!(f, "{m}")?,
+            Self::Named(n) => write!(f, "{n}")?,
             Self::Undetermined(u) => write!(f, "{u}")?,
             Self::Null => write!(f, "Null")?,
         }
@@ -341,7 +348,7 @@ impl Debug for LiteralType {
     }
 }
 
-impl Debug for SumType {
+impl Debug for UnionType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for ty in &self.tys {
             write!(f, "or {ty}")?;
@@ -354,19 +361,31 @@ impl Debug for SumType {
 impl Debug for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Sum(s) => write!(f, "{s}")?,
+            Self::Union(s) => write!(f, "{s}")?,
             Self::Literal(l) => write!(f, "{l}")?,
             Self::Primitive(p) => write!(f, "{p:?}")?,
             Self::Repr(r) => write!(f, "{r:?}")?,
             Self::Optional(o) => write!(f, "{o:?}")?,
             Self::Array(a) => write!(f, "{a:?}")?,
             Self::Into(i) => write!(f, "{i:?}")?,
-            Self::Model(m) => write!(f, "Model: {m}")?,
-            Self::Enum(e) => write!(f, "Enum: {e}")?,
+            Self::Struct(s) => write!(f, "{s:?}")?,
+            Self::Named(n) => write!(f, "{n:?}")?,
             Self::Undetermined(u) => write!(f, "Undetermined: {u}")?,
             Self::Null => write!(f, "Null")?,
         }
 
         return Ok(());
+    }
+}
+
+impl Debug for StructType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_list().entries(self.members.iter()).finish()
+    }
+}
+
+impl Display for StructType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_list().entries(self.members.iter()).finish()
     }
 }

@@ -1,10 +1,10 @@
 definitions = {
-    SOI ~ (model_definion | ty_definition | end_point)+ ~ EOI
+    SOI ~ (model_definition | ty_definition | end_point)+ ~ EOI
 }
 
 ty_definition = { "type" ~ name ~ "=" ~ ty }
 
-model_definion = {
+model_definition = {
     "type" ~ name ~ model_extension? ~ "=" ~ model_type
 }
 
@@ -19,7 +19,7 @@ operation      =  { "get" | "post" | "put" }
 
 path = ${ "\"" ~ inner ~ "\"" }
 
-ty = ${ (sum_type | map_type | value_type | into_type | repr_type | primitive_type | null_type | named_type) ~ weird_mark* }
+ty = ${ (model_type | sum_type | map_type | value_type | into_type | repr_type | primitive_type | null_type | named_type) ~ weird_mark* }
 
 model_type = {
     "{" ~ member_field ~ ("," ~ member_field)* ~ ","? ~ "}"
@@ -32,7 +32,8 @@ map_type   = ${ "<" ~ " "* ~ primitive_type ~ " "* ~ "," ~ " "* ~ ty ~ " "* ~ ">
 named_type = ${ name }
 
 value_type  = ${ value }
-sum_type    =  { "(" ~ ty ~ " "* ~ "|" ~ " "* ~ ty ~ ")" }
+sum_type    = ${ sum_tag ~ "{" ~ ty ~ " "* ~ "|" ~ " "* ~ ty ~ "}" }
+sum_tag     =  { "inner" | "outer" }
 weird_mark  = ${ (option_mark | array_mark) }
 option_mark = @{ "?" }
 array_mark  =  { "[" ~ prec? ~ "]" }
@@ -40,8 +41,8 @@ array_mark  =  { "[" ~ prec? ~ "]" }
 repr_type = ${ repr_root ~ ("_" ~ prec)? }
 repr_root = ${ datetime }
 
-datetime = ${ "datetime" ~ ("(" ~ datetime_fmt ~ ")")? }
-datetime_fmt = {"iso" | name }
+datetime     = ${ "datetime" ~ ("(" ~ datetime_fmt ~ ")")? }
+datetime_fmt =  { "iso" | name }
 
 primitive_type = ${ praw | pprec ~ ("_" ~ prec)? }
 praw           =  { "bool" }

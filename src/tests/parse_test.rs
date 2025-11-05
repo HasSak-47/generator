@@ -9,18 +9,6 @@ fn parse_test() -> Result<()> {
     let defs = Definitons::get_definitions("./unit.gdsl")?;
     let generator = Box::new(ts::TS::default());
 
-    let add_enums = |code: &mut Code| {
-        let mut names: Vec<_> = defs.enums.keys().collect();
-        names.sort();
-        for name in names {
-            let model = &defs.enums[name];
-            let g = generator.handle_enum(name, model);
-            if g.has_code() {
-                code.add_child(g);
-            }
-        }
-    };
-
     let add_models = |code: &mut Code| {
         let mut names: Vec<_> = defs.models.keys().collect();
         names.sort();
@@ -52,7 +40,6 @@ fn parse_test() -> Result<()> {
     code.add_child(generator.generate_model_header(&defs));
     code.add_child(generator.generate_endpoint_header(&defs));
 
-    add_enums(&mut code);
     add_models(&mut code);
     add_endpoints(&mut code);
 

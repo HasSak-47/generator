@@ -52,22 +52,24 @@ impl FastApi {
             Type::Optional(o) => format!("Optional[{}]", self.handle_type(defs, &o.ty)),
             Type::Array(a) => format!("List[{}]", self.handle_type(defs, &a.ty)),
             Type::Into(i) => format!("{}", self.handle_type(defs, &i.from)),
-            Type::Model(m) => format!("{m}",),
-            Type::Enum(e) => match self.enum_handling {
-                EnumHandling::ToClass => {
-                    format!("{e}",)
-                }
-                EnumHandling::ToString => self.handle_type(defs, &Type::string(None)),
-                EnumHandling::ToEnum => {
-                    let mut poss = defs.enums.get(e).unwrap().params.iter();
-                    let mut s = format!("{}", poss.next().unwrap());
-                    for param in poss {
-                        s += format!(" | {param}").as_str();
-                    }
+            Type::Named(m) => format!("{m}",),
+            Type::Union(e) => {
+                todo!()
+                // match self.enum_handling {
+                // EnumHandling::ToClass => {
+                //     format!("{e}",)
+                // }
+                // EnumHandling::ToString => self.handle_type(defs, &Type::string(None)),
+                // EnumHandling::ToEnum => {
+                //     let mut poss = defs.enums.get(e).unwrap().params.iter();
+                //     let mut s = format!("{}", poss.next().unwrap());
+                //     for param in poss {
+                //         s += format!(" | {param}").as_str();
+                //     }
 
-                    s
-                }
-            },
+                //     s
+                // }
+            }
             Type::Undetermined(u) => panic!("Undetermined: {u:?} reached a FastApi generator",),
             Type::Null => format!("None",),
             e => unimplemented!("{e:?}"),
@@ -76,24 +78,28 @@ impl FastApi {
 }
 
 impl Generator for FastApi {
-    fn handle_model(&self, name: &str, model: &Model, defs: &Definitons) -> Code {
-        let mut code = Code::new_segment();
-        code.add_line(format!("class {}(BaseModel):", name));
-        let class_body = code.create_child_block();
-        for (name, ty) in &model.params {
-            class_body.add_line(format!("{name}: {}", self.handle_type(defs, &ty)));
-        }
-
-        return code;
+    fn handle_type(&self, name: &str, model: &Type, defs: &Definitons) -> Code {
+        todo!()
     }
 
-    #[allow(unused_variables)]
-    fn handle_enum(&self, name: &str, model: &Enum) -> Code {
-        if let EnumHandling::ToString = self.enum_handling {
-            return Code::new_segment();
-        }
-        todo!();
-    }
+    // fn handle_model(&self, name: &str, model: &Model, defs: &Definitons) -> Code {
+    //     let mut code = Code::new_segment();
+    //     code.add_line(format!("class {}(BaseModel):", name));
+    //     let class_body = code.create_child_block();
+    //     for (name, ty) in &model.params {
+    //         class_body.add_line(format!("{name}: {}", self.handle_type(defs, &ty)));
+    //     }
+
+    //     return code;
+    // }
+
+    // #[allow(unused_variables)]
+    // fn handle_enum(&self, name: &str, model: &Enum) -> Code {
+    //     if let EnumHandling::ToString = self.enum_handling {
+    //         return Code::new_segment();
+    //     }
+    //     todo!();
+    // }
 
     fn handle_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> Code {
         let mut code = Code::new_segment();

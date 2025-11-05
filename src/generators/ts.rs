@@ -3,8 +3,8 @@ use std::fmt::Display;
 use crate::{
     builder::Code,
     parser::{
-        dsl::{Definitons, EndPoint, EndPointParamKind, Enum, Generator, Model},
-        types::{PrimitiveType, Repr, SumType, Type},
+        dsl::{Definitons, EndPoint, EndPointParamKind, Enum, Generator},
+        types::{PrimitiveType, Repr, StructType, Type, UnionType},
     },
 };
 
@@ -78,7 +78,7 @@ impl TS {
         .to_string();
     }
 
-    fn generate_sum_type(&self, e: &SumType) -> String {
+    fn generate_union_type(&self, e: &UnionType) -> String {
         let mut poss = e.tys.iter();
         let mut s = format!("{}", poss.next().unwrap());
         for param in poss {
@@ -112,17 +112,10 @@ impl TS {
             Type::Optional(o) => format!("{} | null", self.handle_singature_for_model(defs, &o.ty)),
             Type::Array(a) => format!("{}[]", self.handle_singature_for_model(defs, &a.ty)),
             Type::Into(i) => format!("{}", self.handle_repr_signature(&i.into)),
-            Type::Model(m) => format!("{m}",),
-            Type::Enum(e) => match self.type_enum {
-                EnumHandling::ToType | EnumHandling::ToEnum => format!("{e}"),
-                EnumHandling::ToAlgebraic => self.generate_enum_algebra(defs.enums.get(e).unwrap()),
-                EnumHandling::ToString => {
-                    self.handle_singature_for_model(defs, &Type::string(None))
-                }
-            },
+            Type::Named(m) => format!("{m}",),
             Type::Undetermined(u) => panic!("Undetermined: {u:?} reached a TS generator",),
             Type::Null => format!("null",),
-            Type::Sum(sum) => self.generate_sum_type(sum),
+            Type::Union(union) => self.generate_union_type(union),
             Type::Literal(lit) => {
                 format!("{lit}")
             }
@@ -174,7 +167,7 @@ impl TS {
                     self.get_convertion_string("e", &arr.ty, defs)
                 )
             }
-            Type::Model(model) => {
+            Type::Struct(model) => {
                 format!("transform_{model}(_{name})")
             }
             _ => name.to_string(),
@@ -206,8 +199,8 @@ impl TS {
             Type::Optional(o) => {
                 return self.transform_type(&o.ty, defs);
             }
-            Type::Model(m) => {
-                return Type::Model(format!("_{m}"));
+            Type::Named(n) => {
+                todo!()
             }
             Type::Into(i) => return *i.from.clone(),
             _ => unreachable!(),
@@ -215,14 +208,16 @@ impl TS {
     }
 
     /// Create a shadow model where `Into` fields are renamed and converted to their source types.
-    fn translate_model(&self, model: &Model, defs: &Definitons) -> Model {
-        let mut translated = Model { params: Vec::new() };
-        for (pname, pty) in &model.params {
+    fn translate_model(&self, model: &StructType, defs: &Definitons) -> StructType {
+        let mut translated = StructType {
+            members: Vec::new(),
+        };
+        for (pname, pty) in &model.members {
             if pty.contains_into(defs) {
                 let ty = self.transform_type(pty, defs);
-                translated.params.push((pname.clone(), ty));
+                translated.members.push((pname.clone(), ty));
             } else {
-                translated.params.push((pname.clone(), pty.clone()));
+                translated.members.push((pname.clone(), pty.clone()));
             }
         }
 
@@ -232,48 +227,50 @@ impl TS {
     /// Emit internal helper types for request bodies that require pre-flight transforms.
     fn generate_request_models(&self, defs: &Definitons) -> Code {
         let mut code = Code::new_segment();
-        for (model_name, model) in &defs.models {
-            let ty = Type::Model(model_name.clone());
-            if !ty.contains_into(defs) {
-                continue;
-            }
+        for (model_name, model) in &defs.types {
+            todo!()
+            // let ty = Type::Struct(model_name.clone());
+            // if !ty.contains_into(defs) {
+            //     continue;
+            // }
 
-            let translated = self.translate_model(model, defs);
-            let name = format!("_{model_name}");
+            // let translated = self.translate_model(model, defs);
+            // let name = format!("_{model_name}");
 
-            code.add_child(self._handle_model(name.as_str(), &translated, defs, false));
+            // code.add_child(self._handle_model(name.as_str(), &translated, defs, false));
         }
         return code;
     }
 
-    /// Emit the conversion helpers that map public models into the helper request models.
+    /// Emit the conversion helper that map public models into the helper request models.
     fn generate_request_transitions(&self, defs: &Definitons) -> Code {
         let mut code = Code::new_segment();
 
-        for (model_name, model) in &defs.models {
-            let segment = code.create_child_segment();
-            let ty = Type::Model(model_name.clone());
-            if !ty.contains_into(defs) {
-                continue;
-            }
+        for (model_name, model) in &defs.types {
+            todo!()
+            // let segment = code.create_child_segment();
+            // let ty = Type::Struct(model_name.clone());
+            // if !ty.contains_into(defs) {
+            //     continue;
+            // }
 
-            segment.add_line(format!(
-                "function transform_{model_name}(_m: {model_name}){{"
-            ));
+            // segment.add_line(format!(
+            //     "function transform_{model_name}(_m: {model_name}){{"
+            // ));
 
-            let func_body = segment.create_child_block();
-            func_body.add_line("return {".to_string());
-            let obj_body = func_body.create_child_block();
+            // let func_body = segment.create_child_block();
+            // func_body.add_line("return {".to_string());
+            // let obj_body = func_body.create_child_block();
 
-            for (name, ty) in &model.params {
-                obj_body.add_line(format!(
-                    "{name} : {},",
-                    self.get_convertion_string(format!("m.{name}"), ty, defs)
-                ));
-            }
-            let _ = obj_body;
-            func_body.add_line(format!("}} as _{model_name};"));
-            segment.add_line("}".to_string());
+            // for (name, ty) in &model.params {
+            //     obj_body.add_line(format!(
+            //         "{name} : {},",
+            //         self.get_convertion_string(format!("m.{name}"), ty, defs)
+            //     ));
+            // }
+            // let _ = obj_body;
+            // func_body.add_line(format!("}} as _{model_name};"));
+            // segment.add_line("}".to_string());
         }
 
         return code;
@@ -293,7 +290,13 @@ impl TS {
         return code;
     }
 
-    fn _handle_model(&self, name: &str, model: &Model, defs: &Definitons, export: bool) -> Code {
+    fn _handle_model(
+        &self,
+        name: &str,
+        model: &StructType,
+        defs: &Definitons,
+        export: bool,
+    ) -> Code {
         let mut code = Code::new_segment();
         code.add_line(format!(
             "{}type {} = {{",
@@ -301,7 +304,7 @@ impl TS {
             name
         ));
         let type_body = code.create_child_block();
-        for (name, ty) in &model.params {
+        for (name, ty) in &model.members {
             type_body.add_line(format!(
                 "{name}: {};",
                 self.handle_singature_for_model(defs, &ty)
@@ -326,26 +329,30 @@ impl Generator for TS {
         return code;
     }
 
-    fn handle_model(&self, name: &str, model: &Model, defs: &Definitons) -> Code {
-        return self._handle_model(name, model, defs, true);
+    fn handle_type(&self, name: &str, model: &Type, defs: &Definitons) -> Code {
+        todo!()
     }
 
-    fn handle_enum(&self, name: &str, e: &Enum) -> Code {
-        match self.type_enum {
-            EnumHandling::ToEnum => {
-                return Code::new_segment();
-            }
-            EnumHandling::ToType => {
-                return Code::new_line(format!(
-                    "export type {name} = {}",
-                    self.generate_enum_algebra(e)
-                ));
-            }
-            EnumHandling::ToString | EnumHandling::ToAlgebraic => {
-                return Code::new_segment();
-            }
-        }
-    }
+    // fn handle_model(&self, name: &str, model: &StructType, defs: &Definitons) -> Code {
+    //     return self._handle_model(name, model, defs, true);
+    // }
+
+    // fn handle_enum(&self, name: &str, e: &Enum) -> Code {
+    //     match self.type_enum {
+    //         EnumHandling::ToEnum => {
+    //             return Code::new_segment();
+    //         }
+    //         EnumHandling::ToType => {
+    //             return Code::new_line(format!(
+    //                 "export type {name} = {}",
+    //                 self.generate_enum_algebra(e)
+    //             ));
+    //         }
+    //         EnumHandling::ToString | EnumHandling::ToAlgebraic => {
+    //             return Code::new_segment();
+    //         }
+    //     }
+    // }
 
     fn handle_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> Code {
         let mut code = Code::new_segment();
@@ -448,8 +455,8 @@ impl Generator for TS {
         let response_segment = func_body.create_child_segment();
 
         match &endpoint.return_type {
-            Type::Model(m) => {
-                for (name, ty) in &defs.models[m].params {
+            Type::Struct(m) => {
+                for (name, ty) in &m.members {
                     response_segment.add_child(self.validate_param(name, ty, &return_type));
                 }
                 func_body.add_line(format!("return j as {return_type}"));

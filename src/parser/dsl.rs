@@ -60,7 +60,7 @@ impl EndPoint {
         let name = name.as_ref();
         let (name, ty) = self.params.iter().find(|p| p.0 == name)?;
         match &ty {
-            Type::Enum(_) | Type::Model(_) => return Some(EndPointParamKind::Body),
+            Type::Union(_) | Type::Struct(_) => return Some(EndPointParamKind::Body),
             _ => {
                 if self.url.contains(format!("{{{name}}}").as_str()) {
                     return Some(EndPointParamKind::Path);
@@ -74,7 +74,6 @@ impl EndPoint {
 
 #[derive(Debug)]
 pub struct Definitons {
-    pub models: HashMap<String, Model>,
     pub types: HashMap<String, Type>,
     pub end_points: HashMap<String, EndPoint>,
 }
@@ -153,7 +152,7 @@ fn handle_type<'a>(p: Pair<'a, Rule>) -> Result<Type> {
             for ty in inner {
                 types.push(handle_type(ty)?);
             }
-            return Ok(Type::Sum(SumType::new(types)));
+            return Ok(Type::Union(UnionType::new(types)));
         }
         e => unreachable!("unreachable rule reached? : {e:?}"),
     };
@@ -195,7 +194,6 @@ fn handle_member_field<'a>(p: Pair<'a, Rule>) -> Result<(String, Type)> {
 impl Definitons {
     fn new() -> Self {
         Self {
-            models: HashMap::new(),
             types: HashMap::new(),
             end_points: HashMap::new(),
         }
@@ -203,34 +201,35 @@ impl Definitons {
 
     /// Resolve undetermined references into concrete enums/models and fail fast on unknown names.
     fn expand_types(&mut self) {
-        let model_names: Vec<String> = self.models.keys().map(|k| k.clone()).collect();
-        let type_names: Vec<String> = self.types.keys().map(|k| k.clone()).collect();
-        for (_, model) in self.models.iter_mut() {
-            for (_, param) in model.params.iter_mut() {
-                let param_name = param.to_string();
-                let found = param.determine_enum(&enum_names).is_ok()
-                    | param.determine_model(&model_names).is_ok();
-                if !found {
-                    panic!("could not expand type {param_name}: {self:?}");
-                }
-            }
-        }
+        todo!();
+        // let model_names: Vec<String> = self.models.keys().map(|k| k.clone()).collect();
+        // let type_names: Vec<String> = self.types.keys().map(|k| k.clone()).collect();
+        // for (_, model) in self.models.iter_mut() {
+        //     for (_, param) in model.params.iter_mut() {
+        //         let param_name = param.to_string();
+        //         let found = param.determine_enum(&enum_names).is_ok()
+        //             | param.determine_model(&model_names).is_ok();
+        //         if !found {
+        //             panic!("could not expand type {param_name}: {self:?}");
+        //         }
+        //     }
+        // }
 
-        for (_, endpoint) in self.end_points.iter_mut() {
-            for (_, param) in endpoint.params.iter_mut() {
-                let param_name = param.to_string();
-                let found = param.determine_enum(&enum_names).is_ok()
-                    | param.determine_model(&model_names).is_ok();
-                if !found {
-                    panic!("could not expand type {param_name}: {self:?}");
-                }
-            }
-            let found = endpoint.return_type.determine_enum(&enum_names).is_ok()
-                | endpoint.return_type.determine_model(&model_names).is_ok();
-            if !found {
-                panic!("could not expand type: {self:?}");
-            }
-        }
+        // for (_, endpoint) in self.end_points.iter_mut() {
+        //     for (_, param) in endpoint.params.iter_mut() {
+        //         let param_name = param.to_string();
+        //         let found = param.determine_enum(&enum_names).is_ok()
+        //             | param.determine_model(&model_names).is_ok();
+        //         if !found {
+        //             panic!("could not expand type {param_name}: {self:?}");
+        //         }
+        //     }
+        //     let found = endpoint.return_type.determine_enum(&enum_names).is_ok()
+        //         | endpoint.return_type.determine_model(&model_names).is_ok();
+        //     if !found {
+        //         panic!("could not expand type: {self:?}");
+        //     }
+        // }
     }
 
     /// Load the DSL file, parse it with pest, and translate the AST into `Definitons`.
@@ -251,32 +250,20 @@ impl Definitons {
 
         for inner in p.into_inner() {
             match inner.as_rule() {
-                Rule::model => {
-                    let mut model = Model::default();
+                Rule::model_definition => {
+                    let mut model = StructType::new();
                     let mut iter = inner.into_inner();
                     let name = iter.next().unwrap();
                     assert!(name.as_rule() == Rule::name);
 
                     for pair in iter {
                         match pair.as_rule() {
-                            Rule::member_field => model.params.push(handle_member_field(pair)?),
+                            Rule::member_field => model.members.push(handle_member_field(pair)?),
                             _ => unreachable!("idk how you got here??"),
                         }
                     }
-                    defs.models.insert(name.as_str().to_string(), model);
-                }
-                Rule::enums => {
-                    let mut r#enum = Enum::default();
-                    let mut iter = inner.into_inner();
-                    let name = iter.next().unwrap();
-                    assert!(name.as_rule() == Rule::name);
-
-                    for inner in iter {
-                        assert!(inner.as_rule() == Rule::string);
-                        let s = inner.as_str().to_string();
-                        r#enum.params.push(s);
-                    }
-                    defs.enums.insert(name.as_str().to_string(), r#enum);
+                    defs.types
+                        .insert(name.as_str().to_string(), Type::Struct(model));
                 }
                 Rule::end_point => {
                     let mut iter = inner.into_inner().peekable();
@@ -328,8 +315,7 @@ pub trait Generator {
         return Code::new_segment();
     }
 
-    fn handle_model(&self, name: &str, model: &Model, defs: &Definitons) -> Code;
-    fn handle_enum(&self, name: &str, model: &Enum) -> Code;
+    fn handle_type(&self, name: &str, model: &Type, defs: &Definitons) -> Code;
     fn handle_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> Code;
 }
 
