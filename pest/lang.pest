@@ -1,14 +1,14 @@
 definitions = {
-    SOI ~ (model_definition | ty_definition | end_point)+ ~ EOI
+    SOI ~ (struct_definition | ty_definition | end_point)+ ~ EOI
 }
 
 ty_definition = { "type" ~ name ~ "=" ~ ty }
 
-model_definition = {
-    "type" ~ name ~ model_extension? ~ "=" ~ struct_type
+struct_definition = {
+    "type" ~ name ~ struct_extension? ~ "=" ~ struct_type
 }
 
-model_extension = @{ ":" ~ name }
+struct_extension = @{ ":" ~ name }
 
 end_point = {
     name ~ "(" ~ (member_field ~ ("," ~ member_field)* ~ ","?)? ~ ")" ~ operation_mark ~ path ~ ("->" ~ ty)?
@@ -32,8 +32,8 @@ map_type   = ${ "<" ~ " "* ~ primitive_type ~ " "* ~ "," ~ " "* ~ ty ~ " "* ~ ">
 named_type = ${ name }
 
 value_type  = ${ value }
-union_type    =  { union_tag? ~ "{" ~ ty ~ " "* ~ "|" ~ " "* ~ ty ~ "}" }
-union_tag     =  { "inner" | "outer" }
+union_type  =  { union_tag? ~ "{" ~ ty ~ " "* ~ "|" ~ " "* ~ ty ~ "}" }
+union_tag   =  { "inner" | "outer" }
 weird_mark  = ${ (option_mark | array_mark) }
 option_mark = @{ "?" }
 array_mark  =  { "[" ~ prec? ~ "]" }
@@ -67,5 +67,5 @@ char   =  {
 }
 
 WHITE_SPACE = _{ " " | "\t" | "\n" }
-WHITESPACE = _{ " " | "\t" | "\n" }
-COMMENT    = _{ "#" ~ (!"\n" ~ ANY)* }
+WHITESPACE  = _{ " " | "\t" | "\n" }
+COMMENT     = _{ "#" ~ (!"\n" ~ ANY)* }

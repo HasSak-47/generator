@@ -97,6 +97,20 @@ fn handle_primitive_type<'a>(p: Pair<'a, Rule>) -> Type {
     }
 }
 
+fn handle_struct<'a>(p: Pair<'a, Rule>) -> Result<Type> {
+    let inner = p.into_inner();
+    let mut struct_ = StructType::new();
+    for member_field in inner {
+        assert_eq!(member_field.as_rule(), Rule::member_field);
+        let mut inner = member_field.into_inner();
+        let name = inner.next().unwrap().as_str().to_string();
+        let ty = handle_type(inner.next().unwrap());
+        struct_.members.push((name, ty?));
+    }
+
+    return Ok(Type::Struct(struct_));
+}
+
 /// Recursively walk the parsed type expression and build the semantic `Type`.
 fn handle_type<'a>(p: Pair<'a, Rule>) -> Result<Type> {
     assert_eq!(p.as_rule(), Rule::ty);
@@ -150,18 +164,7 @@ fn handle_type<'a>(p: Pair<'a, Rule>) -> Result<Type> {
             }
             return Ok(Type::Union(UnionType::new(types)));
         }
-        Rule::struct_type => {
-            let inner = next.into_inner();
-            let mut struct_ = StructType::new();
-            for member_field in inner {
-                assert_eq!(member_field.as_rule(), Rule::member_field);
-                let mut inner = member_field.into_inner();
-                let name = inner.next().unwrap().as_str().to_string();
-                let ty = handle_type(inner.next().unwrap());
-                struct_.members.push((name, ty?));
-            }
-            Type::Struct(struct_)
-        }
+        Rule::struct_type => handle_struct(next)?,
         e => unreachable!("unreachable rule reached? : {e:?}"),
     };
 
@@ -207,37 +210,58 @@ impl Definitons {
         }
     }
 
-    /// Resolve undetermined references into concrete enums/models and fail fast on unknown names.
-    fn expand_types(&mut self) {
-        todo!();
-        // let model_names: Vec<String> = self.models.keys().map(|k| k.clone()).collect();
-        // let type_names: Vec<String> = self.types.keys().map(|k| k.clone()).collect();
-        // for (_, model) in self.models.iter_mut() {
-        //     for (_, param) in model.params.iter_mut() {
-        //         let param_name = param.to_string();
-        //         let found = param.determine_enum(&enum_names).is_ok()
-        //             | param.determine_model(&model_names).is_ok();
-        //         if !found {
-        //             panic!("could not expand type {param_name}: {self:?}");
-        //         }
-        //     }
-        // }
+    fn check_type(ty: &Type, names: &Vec<String>) -> bool {
+        match ty {
+            Type::Struct(struct_) => {
+                for (_, ty) in &struct_.members {
+                    let found = Definitons::check_type(ty, names);
+                    if !found {
+                        let ty_name = ty.to_string();
+                        panic!("could not expand type {ty_name}");
+                    }
+                }
+            }
+            Type::Union(union) => {
+                for ty in &union.tys {
+                    let found = Definitons::check_type(ty, names);
+                    if !found {
+                        let ty_name = ty.to_string();
+                        panic!("could not expand type {ty_name}");
+                    }
+                }
+            }
+            Type::Named(name) => return names.iter().find(|n| **n == *name).is_some(),
+            _ => {}
+        }
 
-        // for (_, endpoint) in self.end_points.iter_mut() {
-        //     for (_, param) in endpoint.params.iter_mut() {
-        //         let param_name = param.to_string();
-        //         let found = param.determine_enum(&enum_names).is_ok()
-        //             | param.determine_model(&model_names).is_ok();
-        //         if !found {
-        //             panic!("could not expand type {param_name}: {self:?}");
-        //         }
-        //     }
-        //     let found = endpoint.return_type.determine_enum(&enum_names).is_ok()
-        //         | endpoint.return_type.determine_model(&model_names).is_ok();
-        //     if !found {
-        //         panic!("could not expand type: {self:?}");
-        //     }
-        // }
+        return true;
+    }
+
+    /// Will check if all names are known, will fail fast on unknown names.
+    fn check_if_defined(&mut self) {
+        let type_names: Vec<String> = self.types.keys().map(|k| k.clone()).collect();
+
+        for (_, ty) in &self.types {
+            let found = Definitons::check_type(ty, &type_names);
+            if !found {
+                let ty_name = ty.to_string();
+                panic!("could not expand type {ty_name}");
+            }
+        }
+
+        for (_, endpoint) in self.end_points.iter_mut() {
+            for (_, ty) in endpoint.params.iter_mut() {
+                let param_name = ty.to_string();
+                let found = Definitons::check_type(ty, &type_names);
+                if !found {
+                    panic!("could not expand type {param_name}: {self:?}");
+                }
+            }
+            let found = Definitons::check_type(&endpoint.return_type, &type_names);
+            if !found {
+                panic!("could not expand type: {self:?}");
+            }
+        }
     }
 
     /// Load the DSL file, parse it with pest, and translate the AST into `Definitons`.
@@ -258,20 +282,13 @@ impl Definitons {
 
         for inner in p.into_inner() {
             match inner.as_rule() {
-                Rule::model_definition => {
-                    let mut model = StructType::new();
+                Rule::struct_definition => {
                     let mut iter = inner.into_inner();
                     let name = iter.next().unwrap();
                     assert!(name.as_rule() == Rule::name);
-
-                    for pair in iter {
-                        match pair.as_rule() {
-                            Rule::member_field => model.members.push(handle_member_field(pair)?),
-                            _ => unreachable!("idk how you got here??"),
-                        }
-                    }
-                    defs.types
-                        .insert(name.as_str().to_string(), Type::Struct(model));
+                    // TODO: handle extensions
+                    let struct_ = handle_struct(iter.next().unwrap())?;
+                    defs.types.insert(name.as_str().to_string(), struct_);
                 }
                 Rule::end_point => {
                     let mut iter = inner.into_inner().peekable();
@@ -309,7 +326,7 @@ impl Definitons {
             }
         }
 
-        defs.expand_types();
+        defs.check_if_defined();
 
         return Ok(defs);
     }
@@ -384,7 +401,29 @@ mod test {
             ),
             (
                 "{{foo: \"ok\", bar: string} | {foo:\"err\", bar: int, baz: string?}}",
-                Type::Union(()),
+                Type::Union(UnionType {
+                    tys: vec![
+                        Type::Struct(StructType {
+                            members: vec![
+                                (
+                                    "foo".to_string(),
+                                    Type::Literal(LiteralType::String("ok".to_string())),
+                                ),
+                                ("bar".to_string(), Type::string(None)),
+                            ],
+                        }),
+                        Type::Struct(StructType {
+                            members: vec![
+                                (
+                                    "foo".to_string(),
+                                    Type::Literal(LiteralType::String("err".to_string())),
+                                ),
+                                ("bar".to_string(), Type::int(None)),
+                                ("baz".to_string(), Type::optional(Type::string(None))),
+                            ],
+                        }),
+                    ],
+                }),
             ),
         ];
         for (text, ty) in tests {
