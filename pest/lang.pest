@@ -32,7 +32,7 @@ map_type   = ${ "<" ~ " "* ~ primitive_type ~ " "* ~ "," ~ " "* ~ ty ~ " "* ~ ">
 named_type = ${ name }
 
 value_type  = ${ value }
-union_type    = ${ union_tag? ~ "{" ~ ty ~ " "* ~ "|" ~ " "* ~ ty ~ "}" }
+union_type    =  { union_tag? ~ "{" ~ ty ~ " "* ~ "|" ~ " "* ~ ty ~ "}" }
 union_tag     =  { "inner" | "outer" }
 weird_mark  = ${ (option_mark | array_mark) }
 option_mark = @{ "?" }

@@ -151,7 +151,16 @@ fn handle_type<'a>(p: Pair<'a, Rule>) -> Result<Type> {
             return Ok(Type::Union(UnionType::new(types)));
         }
         Rule::struct_type => {
-            todo!("todo handle struct type")
+            let inner = next.into_inner();
+            let mut struct_ = StructType::new();
+            for member_field in inner {
+                assert_eq!(member_field.as_rule(), Rule::member_field);
+                let mut inner = member_field.into_inner();
+                let name = inner.next().unwrap().as_str().to_string();
+                let ty = handle_type(inner.next().unwrap());
+                struct_.members.push((name, ty?));
+            }
+            Type::Struct(struct_)
         }
         e => unreachable!("unreachable rule reached? : {e:?}"),
     };
@@ -361,16 +370,27 @@ mod test {
                     ],
                 }),
             ),
-            ("{ foo: int, bar: string as datetime? }", Type::Null),
+            (
+                "{ foo: int, bar: string as datetime? }",
+                Type::Struct(StructType {
+                    members: vec![
+                        ("foo".to_string(), Type::int(None)),
+                        (
+                            "bar".to_string(),
+                            Type::optional(Type::into(Type::string(None), Repr::Datetime)),
+                        ),
+                    ],
+                }),
+            ),
             (
                 "{{foo: \"ok\", bar: string} | {foo:\"err\", bar: int, baz: string?}}",
-                Type::Null,
+                Type::Union(()),
             ),
         ];
         for (text, ty) in tests {
             let p = LangParser::parse(Rule::ty, text)?.next().unwrap();
             let target_ty = dsl::handle_type(p)?;
-            assert_eq!(*ty, target_ty, "{text} is not {ty} {target_ty}");
+            assert_eq!(*ty, target_ty, "failed to process {text} {ty}");
         }
 
         return Ok(());
