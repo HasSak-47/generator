@@ -235,7 +235,7 @@ impl Generator for TS {
             code.add_line("import Result from '@/utils/result'".to_string());
         }
 
-        code.add_child(self.generate_request_transitions(defs));
+        code.add_child(self.generate_to_wires(defs));
 
         return code;
     }

@@ -12,10 +12,10 @@ struct SplitType {
 }
 
 #[derive(Debug)]
-struct TypeInformation {
-    name: String,
-    ty: Type,
-    conversion: Option<SplitType>,
+pub struct TypeInformation {
+    pub(super) name: String,
+    pub(super) ty: Type,
+    pub(super) conversion: Option<SplitType>,
 }
 
 impl TypeInformation {

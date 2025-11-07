@@ -75,7 +75,7 @@ impl FastApi {
 }
 
 impl Generator for FastApi {
-    fn handle_type(&self, name: &str, model: &Type, defs: &Definitons) -> Code {
+    fn generate_domain_type(&self, name: &str, model: &Type, defs: &Definitons) -> Code {
         todo!()
     }
 
