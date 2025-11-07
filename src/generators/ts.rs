@@ -82,7 +82,11 @@ impl TS {
         .to_string()
     }
 
-    fn generate_union_type(&self, e: &UnionType) -> String {
+    fn get_struct_signature(&self, e: &StructType) -> String {
+        todo!()
+    }
+
+    fn get_union_signature(&self, e: &UnionType) -> String {
         let mut poss = e.tys.iter();
         let mut s = format!("{}", poss.next().unwrap());
         for param in poss {
@@ -102,9 +106,8 @@ impl TS {
             Type::Named(m) => format!("{m}",),
             Type::Undetermined(u) => panic!("Undetermined: {u:?} reached a TS generator",),
             Type::Null => format!("null",),
-            Type::Union(union) => self.generate_union_type(union),
-            Type::Literal(lit) => {
-                format!("{lit}")
+            Type::Literal(l) => {
+                format!("{l}")
             }
             #[allow(unreachable_patterns)]
             e => unimplemented!("{e:?}"),
@@ -178,11 +181,10 @@ impl TS {
     }
 
     /// Emit the conversion helper that map public models into the helper request models.
-    fn generate_request_transitions(&self, defs: &Definitons) -> Code {
+    fn generate_to_wires(&self, defs: &Definitons) -> Code {
         let mut code = Code::new_segment();
 
-        for (model_name, model) in &defs.types {
-            todo!()
+        for (type_name, ty) in &defs.types {
             // let segment = code.create_child_segment();
             // let ty = Type::Struct(model_name.clone());
             // if !ty.contains_into(defs) {
@@ -238,7 +240,7 @@ impl Generator for TS {
         return code;
     }
 
-    fn handle_type(&self, name: &str, model: &Type, defs: &Definitons) -> Code {
+    fn generate_domain_type(&self, name: &str, model: &Type, defs: &Definitons) -> Code {
         todo!()
     }
 

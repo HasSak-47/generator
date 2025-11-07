@@ -5,10 +5,48 @@ use std::collections::HashMap;
 use std::path::Path;
 
 #[derive(Debug)]
+struct SplitType {
+    wire: Type,
+    domain: Type,
+    wire_name: String,
+}
+
+#[derive(Debug)]
+struct TypeInformation {
+    name: String,
+    ty: Type,
+    conversion: Option<SplitType>,
+}
+
+impl TypeInformation {
+    pub fn get_domain_type(&self) -> &Type {
+        if let Some(con) = &self.conversion {
+            &con.domain
+        } else {
+            &self.ty
+        }
+    }
+
+    pub fn get_wire_type(&self) -> &Type {
+        if let Some(con) = &self.conversion {
+            &con.wire
+        } else {
+            &self.ty
+        }
+    }
+
+    pub fn get_wire_name(&self) -> &String {
+        if let Some(con) = &self.conversion {
+            &con.wire_name
+        } else {
+            &self.name
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct Definitons {
-    pub types: HashMap<String, Type>,
-    pub wire_types: HashMap<String, Type>,
-    pub domain_types: HashMap<String, Type>,
+    pub types: HashMap<String, TypeInformation>,
     pub end_points: HashMap<String, EndPoint>,
 }
 
@@ -16,8 +54,6 @@ impl Definitons {
     pub fn new() -> Self {
         Self {
             types: HashMap::new(),
-            domain_types: HashMap::new(),
-            wire_types: HashMap::new(),
             end_points: HashMap::new(),
         }
     }
@@ -54,9 +90,9 @@ impl Definitons {
         let type_names: Vec<String> = self.types.keys().map(|k| k.clone()).collect();
 
         for (_, ty) in &self.types {
-            let found = Definitons::check_type(ty, &type_names);
+            let found = Definitons::check_type(&ty.ty, &type_names);
             if !found {
-                let ty_name = ty.to_string();
+                let ty_name = ty.ty.to_string();
                 panic!("could not expand type {ty_name}");
             }
         }
@@ -77,9 +113,7 @@ impl Definitons {
     }
 
     pub fn generate_domain_type(&self, ty: &Type) -> Type {
-        if !ty.contains_into(self) {
-            return ty.clone();
-        }
+        assert!(ty.contains_into(self));
 
         return match ty {
             Type::Into(i) => Type::Repr(i.into.clone()),
@@ -138,21 +172,45 @@ impl Definitons {
         };
     }
 
+    pub fn add_type(&mut self, name: String, ty: Type) {
+        self.types.insert(
+            name.clone(),
+            TypeInformation {
+                name,
+                ty,
+                conversion: None,
+            },
+        );
+    }
+
     pub fn get_definitions<P: AsRef<Path>>(p: P) -> Result<Self> {
         let mut defs = super::dsl::get_definitions(p)?;
         defs.check_if_defined();
 
+        // I hate the borrow checker sometimes
+        let mut new_types = HashMap::new();
         for (name, ty) in &defs.types {
-            if !ty.contains_into(&defs) {
+            if !ty.ty.contains_into(&defs) {
                 continue;
             }
 
             let wire_name = format!("_{name}");
-            defs.wire_types
-                .insert(wire_name, defs.generate_wire_type(ty));
+            let wire = defs.generate_wire_type(&ty.ty);
+            let domain = defs.generate_domain_type(&ty.ty);
 
-            defs.domain_types
-                .insert(name.clone(), defs.generate_domain_type(ty));
+            new_types.insert(
+                name.clone(),
+                SplitType {
+                    wire_name,
+                    wire,
+                    domain,
+                },
+            );
+        }
+
+        for (name, s) in new_types {
+            let t = defs.types.get_mut(&name).unwrap();
+            t.conversion = Some(s);
         }
 
         return Ok(defs);
@@ -167,6 +225,6 @@ pub trait Generator {
         return Code::new_segment();
     }
 
-    fn handle_type(&self, name: &str, model: &Type, defs: &Definitons) -> Code;
+    fn generate_domain_type(&self, name: &str, model: &Type, defs: &Definitons) -> Code;
     fn handle_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> Code;
 }

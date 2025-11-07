@@ -256,7 +256,7 @@ pub fn get_definitions<P: AsRef<Path>>(p: P) -> Result<Definitons> {
                 assert!(name.as_rule() == Rule::name);
                 // TODO: handle extensions
                 let struct_ = handle_struct(iter.next().unwrap())?;
-                defs.types.insert(name.as_str().to_string(), struct_);
+                defs.add_type(name.as_str().to_string(), struct_);
             }
             Rule::end_point => {
                 let mut iter = inner.into_inner().peekable();

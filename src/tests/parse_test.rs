@@ -15,7 +15,7 @@ fn parse_test() -> Result<()> {
     code.add_child(generator.generate_endpoint_header(&defs));
 
     for (name, ty) in &defs.types {
-        code.add_child(generator.handle_type(name.as_str(), &ty, &defs));
+        code.add_child(generator.generate_domain_type(name.as_str(), ty.get_domain_type(), &defs));
     }
     for (name, endpoint) in &defs.end_points {
         code.add_child(generator.handle_endpoint(name.as_str(), &endpoint, &defs));
