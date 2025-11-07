@@ -240,7 +240,7 @@ impl Generator for TS {
         return code;
     }
 
-    fn generate_domain_type(&self, name: &str, model: &Type, defs: &Definitons) -> Code {
+    fn generate_type(&self, name: &str, model: &Type, defs: &Definitons) -> Code {
         todo!()
     }
 
@@ -265,7 +265,7 @@ impl Generator for TS {
     //     }
     // }
 
-    fn handle_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> Code {
+    fn generate_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> Code {
         let mut code = Code::new_segment();
         let mut function_decl = format!("export async function {}(", name);
         for (name, ty) in &endpoint.params {

@@ -11,14 +11,14 @@ fn parse_test() -> Result<()> {
 
     let mut code = Code::new_segment();
 
-    code.add_child(generator.generate_model_header(&defs));
+    code.add_child(generator.generate_type_header(&defs));
     code.add_child(generator.generate_endpoint_header(&defs));
 
     for (name, ty) in &defs.types {
-        code.add_child(generator.generate_domain_type(name.as_str(), ty.get_domain_type(), &defs));
+        code.add_child(generator.generate_type(name.as_str(), ty.get_domain_type(), &defs));
     }
     for (name, endpoint) in &defs.end_points {
-        code.add_child(generator.handle_endpoint(name.as_str(), &endpoint, &defs));
+        code.add_child(generator.generate_endpoint(name.as_str(), &endpoint, &defs));
     }
 
     let code = code.collapse_root("\t");

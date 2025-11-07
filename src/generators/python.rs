@@ -75,7 +75,7 @@ impl FastApi {
 }
 
 impl Generator for FastApi {
-    fn generate_domain_type(&self, name: &str, model: &Type, defs: &Definitons) -> Code {
+    fn generate_type(&self, name: &str, model: &Type, defs: &Definitons) -> Code {
         todo!()
     }
 
@@ -98,7 +98,7 @@ impl Generator for FastApi {
     //     todo!();
     // }
 
-    fn handle_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> Code {
+    fn generate_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> Code {
         let mut code = Code::new_segment();
         code.add_line(format!(
             "@{}.{}('{}')",

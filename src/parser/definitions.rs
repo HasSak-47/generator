@@ -221,10 +221,11 @@ pub trait Generator {
     fn generate_endpoint_header(&self, _defs: &Definitons) -> Code {
         return Code::new_segment();
     }
-    fn generate_model_header(&self, _defs: &Definitons) -> Code {
+    fn generate_type_header(&self, _defs: &Definitons) -> Code {
         return Code::new_segment();
     }
 
-    fn generate_domain_type(&self, name: &str, model: &Type, defs: &Definitons) -> Code;
-    fn handle_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> Code;
+    fn generate_type(&self, name: &str, model: &Type, defs: &Definitons) -> Code;
+    fn generate_type_translations(&self, name: &str, model: &Type, defs: &Definitons) -> Code;
+    fn generate_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> Code;
 }
