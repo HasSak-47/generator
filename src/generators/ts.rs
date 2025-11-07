@@ -65,7 +65,7 @@ pub struct TS {
 }
 
 impl TS {
-    fn handle_primitive(&self, p: &PrimitiveType) -> String {
+    fn get_primitive_signature(&self, p: &PrimitiveType) -> String {
         use PrimitiveType as PT;
         return match p {
             PT::Bool => "boolean",
@@ -73,6 +73,13 @@ impl TS {
             PT::String(_) => "string",
         }
         .to_string();
+    }
+
+    fn get_repr_signature(&self, r: &Repr) -> String {
+        match r {
+            Repr::Datetime => "Date",
+        }
+        .to_string()
     }
 
     fn generate_union_type(&self, e: &UnionType) -> String {
@@ -85,30 +92,13 @@ impl TS {
         s
     }
 
-    // fn generate_enum_algebra(&self, e: &Enum) -> String {
-    //     let mut poss = e.params.iter();
-    //     let mut s = format!("{}", poss.next().unwrap());
-    //     for param in poss {
-    //         s += format!(" | {param}").as_str();
-    //     }
-
-    //     s
-    // }
-
-    fn handle_repr_signature(&self, r: &Repr) -> String {
-        match r {
-            Repr::Datetime => "Date",
-        }
-        .to_string()
-    }
-
-    fn handle_singature_for_model(&self, defs: &Definitons, ty: &Type) -> String {
+    fn get_type_signature(&self, defs: &Definitons, ty: &Type) -> String {
         return match ty {
-            Type::Primitive(p) => self.handle_primitive(p),
-            Type::Repr(r) => self.handle_repr_signature(r),
-            Type::Optional(o) => format!("{} | null", self.handle_singature_for_model(defs, &o.ty)),
-            Type::Array(a) => format!("{}[]", self.handle_singature_for_model(defs, &a.ty)),
-            Type::Into(i) => format!("{}", self.handle_repr_signature(&i.into)),
+            Type::Primitive(p) => self.get_primitive_signature(p),
+            Type::Repr(r) => self.get_repr_signature(r),
+            Type::Optional(o) => format!("{} | null", self.get_type_signature(defs, &o.ty)),
+            Type::Array(a) => format!("{}[]", self.get_type_signature(defs, &a.ty)),
+            Type::Into(i) => format!("{}", self.get_repr_signature(&i.into)),
             Type::Named(m) => format!("{m}",),
             Type::Undetermined(u) => panic!("Undetermined: {u:?} reached a TS generator",),
             Type::Null => format!("null",),
@@ -187,63 +177,6 @@ impl TS {
         };
     }
 
-    /// Strip `Into` wrappers so we can generate helper models that mirror the request payload.
-    fn transform_type(&self, ty: &Type, defs: &Definitons) -> Type {
-        match ty {
-            Type::Array(a) => {
-                return self.transform_type(&a.ty, defs);
-            }
-            Type::Optional(o) => {
-                return self.transform_type(&o.ty, defs);
-            }
-            Type::Named(n) => {
-                todo!()
-            }
-            Type::Into(i) => return *i.from.clone(),
-            _ => unreachable!(),
-        }
-    }
-
-    fn translate_struct(&self, ty: &StructType, defs: &Definitons) -> StructType {
-        let mut translated = StructType {
-            members: Vec::new(),
-        };
-        for (pname, pty) in &ty.members {
-            if pty.contains_into(defs) {
-                let ty = self.transform_type(pty, defs);
-                translated.members.push((pname.clone(), ty));
-            } else {
-                translated.members.push((pname.clone(), pty.clone()));
-            }
-        }
-
-        return translated;
-    }
-
-    /// Create a shadow model where `Into` fields are renamed and converted to their source types.
-    fn translate_type(&self, ty: &Type, defs: &Definitons) -> Type {
-        match ty {
-            Type::Struct(s) => Type::Struct(self.translate_struct(s, defs)),
-            _ => ty.clone(),
-        }
-    }
-
-    /// Emit internal helper types for request bodies that require pre-flight transforms.
-    fn generate_request_types(&self, defs: &Definitons) -> Code {
-        let mut code = Code::new_segment();
-        for (type_name, ty) in &defs.types {
-            if !ty.contains_into(defs) {
-                continue;
-            }
-
-            let translated = self.translate_type(ty, defs);
-            let name = format!("_{type_name}");
-
-            todo!()
-        }
-        return code;
-    }
-
     /// Emit the conversion helper that map public models into the helper request models.
     fn generate_request_transitions(&self, defs: &Definitons) -> Code {
         let mut code = Code::new_segment();
@@ -291,31 +224,6 @@ impl TS {
 
         return code;
     }
-
-    fn _handle_model(
-        &self,
-        name: &str,
-        model: &StructType,
-        defs: &Definitons,
-        export: bool,
-    ) -> Code {
-        let mut code = Code::new_segment();
-        code.add_line(format!(
-            "{}type {} = {{",
-            if export { "export " } else { "" },
-            name
-        ));
-        let type_body = code.create_child_block();
-        for (name, ty) in &model.members {
-            type_body.add_line(format!(
-                "{name}: {};",
-                self.handle_singature_for_model(defs, &ty)
-            ));
-        }
-        code.add_line("};".to_string());
-
-        return code;
-    }
 }
 
 impl Generator for TS {
@@ -325,7 +233,6 @@ impl Generator for TS {
             code.add_line("import Result from '@/utils/result'".to_string());
         }
 
-        code.add_child(self.generate_request_types(defs));
         code.add_child(self.generate_request_transitions(defs));
 
         return code;
@@ -362,10 +269,10 @@ impl Generator for TS {
         for (name, ty) in &endpoint.params {
             if ty.contains_into(defs) {
                 function_decl +=
-                    format!("_{name}: {}, ", self.handle_singature_for_model(defs, &ty)).as_str();
+                    format!("_{name}: {}, ", self.get_type_signature(defs, &ty)).as_str();
             } else {
                 function_decl +=
-                    format!("{name}: {}, ", self.handle_singature_for_model(defs, &ty)).as_str();
+                    format!("{name}: {}, ", self.get_type_signature(defs, &ty)).as_str();
             }
         }
         function_decl += "){";
@@ -437,7 +344,7 @@ impl Generator for TS {
         fetch_code.add_line("});".to_string());
         func_body.add_child(fetch_code);
 
-        let return_type = self.handle_singature_for_model(defs, &endpoint.return_type);
+        let return_type = self.get_type_signature(defs, &endpoint.return_type);
 
         // request error
         let error = "new Error(response.statusText)".to_string();
@@ -464,9 +371,11 @@ impl Generator for TS {
                 func_body.add_line(format!("return j as {return_type}"));
             }
             Type::Primitive(p) => {
-                let expected_type = self.handle_primitive(p);
-                response_segment
-                    .add_line(format!("if(typeof j != '{}')", self.handle_primitive(p)));
+                let expected_type = self.get_primitive_signature(p);
+                response_segment.add_line(format!(
+                    "if(typeof j != '{}')",
+                    self.get_primitive_signature(p)
+                ));
                 let if_body = response_segment.create_child_block();
                 if_body.add_line(self.handle_error(
                     &format!("new Error('response was not a {expected_type}')"),
