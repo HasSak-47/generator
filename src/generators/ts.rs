@@ -181,39 +181,6 @@ impl TS {
         };
     }
 
-    /// Emit the conversion helper that map public models into the helper request models.
-    fn generate_to_wires(&self, defs: &Definitons) -> Code {
-        let mut code = Code::new_segment();
-
-        for (type_name, ty) in &defs.types {
-            // let segment = code.create_child_segment();
-            // let ty = Type::Struct(model_name.clone());
-            // if !ty.contains_into(defs) {
-            //     continue;
-            // }
-
-            // segment.add_line(format!(
-            //     "function transform_{model_name}(_m: {model_name}){{"
-            // ));
-
-            // let func_body = segment.create_child_block();
-            // func_body.add_line("return {".to_string());
-            // let obj_body = func_body.create_child_block();
-
-            // for (name, ty) in &model.params {
-            //     obj_body.add_line(format!(
-            //         "{name} : {},",
-            //         self.get_convertion_string(format!("m.{name}"), ty, defs)
-            //     ));
-            // }
-            // let _ = obj_body;
-            // func_body.add_line(format!("}} as _{model_name};"));
-            // segment.add_line("}".to_string());
-        }
-
-        return code;
-    }
-
     /// Guard against missing fields on loosely typed JSON responses.
     fn validate_param(&self, name: &String, _expected_type: &Type, return_type: &String) -> Code {
         // TODO: add type guards
@@ -236,12 +203,29 @@ impl Generator for TS {
             code.add_line("import Result from '@/utils/result'".to_string());
         }
 
-        code.add_child(self.generate_to_wires(defs));
-
         return code;
     }
 
     fn generate_type_translation(&self, ty: &TypeInformation, defs: &Definitons) -> Code {
+        let mut code = Code::new_segment();
+        let type_name = &ty.name;
+
+        code.add_line(format!("function transform_{type_name}(_m: {type_name}){{"));
+
+        // let func_body = segment.create_child_block();
+        // func_body.add_line("return {".to_string());
+        // let obj_body = func_body.create_child_block();
+
+        // for (name, ty) in &model.params {
+        //     obj_body.add_line(format!(
+        //         "{name} : {},",
+        //         self.get_convertion_string(format!("m.{name}"), ty, defs)
+        //     ));
+        // }
+        // let _ = obj_body;
+        // func_body.add_line(format!("}} as _{model_name};"));
+        // segment.add_line("}".to_string());
+
         todo!()
     }
 

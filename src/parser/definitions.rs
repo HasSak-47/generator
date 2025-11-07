@@ -13,12 +13,15 @@ struct SplitType {
 
 #[derive(Debug)]
 pub struct TypeInformation {
-    pub(super) name: String,
-    pub(super) ty: Type,
-    pub(super) conversion: Option<SplitType>,
+    pub name: String,
+    pub ty: Type,
+    conversion: Option<SplitType>,
 }
 
 impl TypeInformation {
+    pub fn has_conversion(&self) -> bool {
+        return self.conversion.is_some();
+    }
     pub fn get_domain_type(&self) -> &Type {
         if let Some(con) = &self.conversion {
             &con.domain
