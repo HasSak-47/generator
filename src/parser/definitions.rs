@@ -234,12 +234,10 @@ impl Definitons {
 
     pub fn generate_wire_type_definitons<G: Generator + ?Sized>(&self, generator: &G) -> Code {
         let mut code = Code::new_segment();
-        for (name, ty) in &self.types {
-            if ty.conversion.is_none() {
-                continue;
+        for (_, ty) in &self.types {
+            if let Some(c) = &ty.conversion {
+                code.add_child(generator.generate_type(c.wire_name.as_str(), &c.wire, false, self));
             }
-            let ty = ty.get_wire_type();
-            code.add_child(generator.generate_type(format!("_{name}").as_str(), ty, false, self));
         }
 
         return code;
