@@ -34,6 +34,7 @@ fn handle_primitive_type<'a>(p: Pair<'a, Rule>) -> Type {
     }
 }
 
+/// Materialize a `struct` block from the parsed grammar into a `StructType`.
 fn handle_struct<'a>(p: Pair<'a, Rule>) -> Result<Type> {
     let inner = p.into_inner();
     let mut struct_ = StructType::new();
@@ -126,6 +127,7 @@ fn handle_type<'a>(p: Pair<'a, Rule>) -> Result<Type> {
     return Ok(ty);
 }
 
+/// Parse a single endpoint parameter or struct field into `(name, Type)`.
 fn handle_member_field<'a>(p: Pair<'a, Rule>) -> Result<(String, Type)> {
     assert!(p.as_rule() == Rule::member_field);
 

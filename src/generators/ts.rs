@@ -92,6 +92,7 @@ impl TS {
         s
     }
 
+    /// Translate a DSL `Type` into the appropriate TypeScript type literal.
     fn get_type_signature(&self, defs: &Definitons, ty: &Type) -> String {
         return match ty {
             Type::Primitive(p) => self.get_primitive_signature(p),
@@ -115,6 +116,7 @@ impl TS {
         };
     }
 
+    /// Produce query-string serialization code for a single endpoint parameter.
     fn get_query_code<S: AsRef<str>>(&self, name: S, ty: &Type) -> Code {
         let mut code = Code::new_segment();
         let name = name.as_ref();
@@ -165,6 +167,7 @@ impl TS {
         }
     }
 
+    /// Emit the error-handling branch according to the configured strategy.
     fn handle_error(&self, err: &String, ty: &String) -> String {
         return match self.error_handling {
             ErrorHandling::Result => format!("return Result.Err<{ty}, Error>({err});"),
@@ -173,6 +176,7 @@ impl TS {
         };
     }
 
+    /// Emit the success-handling branch according to the configured strategy.
     fn handle_ok(&self, ok: &String, ty: &String) -> String {
         return match self.error_handling {
             ErrorHandling::Result => format!("return Result.Ok<{ty}, Error>({ok});"),
@@ -250,6 +254,7 @@ impl Generator for TS {
         return code;
     }
 
+    /// Generate a strongly typed fetch wrapper for a single endpoint definition.
     fn generate_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> Code {
         let mut code = Code::new_segment();
         let mut function_decl = format!("export async function {}(", name);

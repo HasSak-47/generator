@@ -61,6 +61,7 @@ impl Definitons {
         }
     }
 
+    /// Replace `Undetermined` leaf nodes with `Named` variants when the identifier exists.
     fn determine_type(ty: &mut Type, names: &Vec<String>) {
         match ty {
             Type::Struct(struct_) => {
@@ -90,7 +91,7 @@ impl Definitons {
         }
     }
 
-    /// Will check if all names are known, will fail fast on unknown names.
+    /// Walk every type/endpoint and ensure that all referenced names exist.
     fn check_if_defined(&mut self) {
         let type_names: Vec<String> = self.types.keys().map(|k| k.clone()).collect();
 
@@ -106,6 +107,7 @@ impl Definitons {
         }
     }
 
+    /// Build the "domain" version of a type by replacing every `Into` field with its target repr.
     pub fn generate_domain_type(&self, ty: &Type) -> Type {
         assert!(ty.contains_into(self));
 
@@ -145,6 +147,7 @@ impl Definitons {
         };
     }
 
+    /// Build the "wire" version of a type by replacing every `Into` field with the transport type.
     pub fn generate_wire_type(&self, ty: &Type) -> Type {
         assert!(ty.contains_into(self), "{ty:?} doesn't contains into");
 
@@ -193,6 +196,7 @@ impl Definitons {
         );
     }
 
+    /// Load and normalize the DSL definitions file, annotating types with conversion metadata.
     pub fn get_definitions<P: AsRef<Path>>(p: P) -> Result<Self> {
         let mut defs = super::dsl::get_definitions(p)?;
         defs.check_if_defined();
@@ -226,6 +230,7 @@ impl Definitons {
         return Ok(defs);
     }
 
+    /// Emit code for every domain type using the provided generator implementation.
     pub fn generate_type_definitons<G: Generator + ?Sized>(&self, generator: &G) -> Code {
         let mut code = Code::new_segment();
         for (name, ty) in &self.types {
@@ -235,6 +240,7 @@ impl Definitons {
         return code;
     }
 
+    /// Emit the wire-model definitions for types that require conversion.
     pub fn generate_wire_type_definitons<G: Generator + ?Sized>(&self, generator: &G) -> Code {
         let mut code = Code::new_segment();
         for (_, ty) in &self.types {
@@ -246,6 +252,7 @@ impl Definitons {
         return code;
     }
 
+    /// Emit the helper functions that translate between domain and wire representations.
     pub fn generate_translation_code<G: Generator + ?Sized>(&self, generator: &G) -> Code {
         let mut code = Code::new_segment();
         for (_, ty) in &self.types {
@@ -258,6 +265,7 @@ impl Definitons {
         return code;
     }
 
+    /// Emit every endpoint definition (handlers or client functions) via the generator.
     pub fn generate_endpoint_definitons<G: Generator + ?Sized>(&self, generator: &G) -> Code {
         let mut code = Code::new_segment();
 
@@ -268,6 +276,7 @@ impl Definitons {
         return code;
     }
 
+    /// Build a standalone chunk of code that only contains type declarations.
     pub fn generate_type_code<G: Generator + ?Sized>(&self, generator: &G) -> Code {
         let mut code = Code::new_segment();
         code.add_child(generator.generate_type_header(self));
@@ -276,6 +285,7 @@ impl Definitons {
         return code;
     }
 
+    /// Build the endpoint-only output (wire structs + translations + endpoints).
     pub fn generate_endpoint_code<G: Generator + ?Sized>(&self, generator: &G) -> Code {
         let mut code = Code::new_segment();
         code.add_child(generator.generate_endpoint_header(self));
@@ -286,6 +296,7 @@ impl Definitons {
         return code;
     }
 
+    /// Build a single combined output that contains both type and endpoint definitions.
     pub fn generate_united_code<G: Generator + ?Sized>(&self, generator: &G) -> Code {
         let mut code = Code::new_segment();
         code.add_child(generator.generate_endpoint_header(self));

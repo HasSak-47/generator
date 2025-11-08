@@ -41,6 +41,7 @@ pub enum EndPointParamKind {
 }
 
 impl EndPoint {
+    /// Infer whether the given parameter should be marshalled as body, path or query data.
     pub fn get_param_type<S: AsRef<str>>(&self, name: S) -> Option<EndPointParamKind> {
         let name = name.as_ref();
         let (name, ty) = self.params.iter().find(|p| p.0 == name)?;

@@ -69,10 +69,12 @@ impl Code {
         }
     }
 
+    /// Collapse the `Code` tree into a formatted string using the provided indentation unit.
     pub fn collapse_root<S: AsRef<str>>(&mut self, _ind: S) -> String {
         return self._collapse_root(_ind, 0, 0);
     }
 
+    /// Depth-first formatter that renders the nested `Code` structure with indentation.
     fn _collapse_root<S: AsRef<str>>(
         &mut self,
         ind: S,
@@ -111,6 +113,7 @@ impl Code {
         };
     }
 
+    /// Returns true when any subtree contains at least one non-empty line.
     pub fn has_code(&self) -> bool {
         match self {
             Code::Line(s) => return !s.is_empty(),
