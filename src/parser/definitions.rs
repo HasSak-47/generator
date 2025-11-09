@@ -62,22 +62,22 @@ impl Definitons {
     }
 
     /// Replace `Undetermined` leaf nodes with `Named` variants when the identifier exists.
-    fn determine_type(ty: &mut Type, names: &Vec<String>) {
+    fn resolve_type_references(ty: &mut Type, names: &Vec<String>) {
         match ty {
             Type::Struct(struct_) => {
                 for (_, ty) in &mut struct_.members {
-                    Definitons::determine_type(ty, names);
+                    Definitons::resolve_type_references(ty, names);
                 }
             }
             Type::Array(arr) => {
-                Definitons::determine_type(&mut arr.ty, names);
+                Definitons::resolve_type_references(&mut arr.ty, names);
             }
             Type::Optional(opt) => {
-                Definitons::determine_type(&mut opt.ty, names);
+                Definitons::resolve_type_references(&mut opt.ty, names);
             }
             Type::Union(union) => {
                 for ty in &mut union.tys {
-                    Definitons::determine_type(ty, names);
+                    Definitons::resolve_type_references(ty, names);
                 }
             }
             Type::Undetermined(name) => {
@@ -92,29 +92,29 @@ impl Definitons {
     }
 
     /// Walk every type/endpoint and ensure that all referenced names exist.
-    fn check_if_defined(&mut self) {
+    fn validate_type_references(&mut self) {
         let type_names: Vec<String> = self.types.keys().map(|k| k.clone()).collect();
 
         for (_, ty) in &mut self.types {
-            Definitons::determine_type(&mut ty.ty, &type_names);
+            Definitons::resolve_type_references(&mut ty.ty, &type_names);
         }
 
         for (_, endpoint) in &mut self.end_points {
             for (_, ty) in endpoint.params.iter_mut() {
-                Definitons::determine_type(ty, &type_names);
+                Definitons::resolve_type_references(ty, &type_names);
             }
-            Definitons::determine_type(&mut endpoint.return_type, &type_names);
+            Definitons::resolve_type_references(&mut endpoint.return_type, &type_names);
         }
     }
 
     /// Build the "domain" version of a type by replacing every `Into` field with its target repr.
-    pub fn generate_domain_type(&self, ty: &Type) -> Type {
+    pub fn convert_to_domain_type(&self, ty: &Type) -> Type {
         assert!(ty.contains_into(self));
 
         return match ty {
             Type::Into(i) => Type::Repr(i.into.clone()),
-            Type::Optional(o) => Type::optional(self.generate_domain_type(&o.ty)),
-            Type::Array(a) => Type::array(self.generate_domain_type(&a.ty), a.len),
+            Type::Optional(o) => Type::optional(self.convert_to_domain_type(&o.ty)),
+            Type::Array(a) => Type::array(self.convert_to_domain_type(&a.ty), a.len),
             Type::Struct(st) => {
                 let mut s = StructType::new();
                 for (name, ty) in &st.members {
@@ -122,7 +122,7 @@ impl Definitons {
                         s.members.push((name.clone(), ty.clone()));
                     } else {
                         s.members
-                            .push((name.clone(), self.generate_domain_type(ty)));
+                            .push((name.clone(), self.convert_to_domain_type(ty)));
                     }
                 }
                 Type::Struct(s)
@@ -133,7 +133,7 @@ impl Definitons {
                     if !ty.contains_into(self) {
                         s.tys.push(ty.clone());
                     } else {
-                        s.tys.push(self.generate_domain_type(ty));
+                        s.tys.push(self.convert_to_domain_type(ty));
                     }
                 }
                 Type::Union(s)
@@ -148,20 +148,20 @@ impl Definitons {
     }
 
     /// Build the "wire" version of a type by replacing every `Into` field with the transport type.
-    pub fn generate_wire_type(&self, ty: &Type) -> Type {
+    pub fn convert_to_wire_type(&self, ty: &Type) -> Type {
         assert!(ty.contains_into(self), "{ty:?} doesn't contains into");
 
         return match ty {
             Type::Into(i) => (*i.from).clone(),
-            Type::Optional(o) => Type::optional(self.generate_wire_type(&o.ty)),
-            Type::Array(a) => Type::array(self.generate_wire_type(&a.ty), a.len),
+            Type::Optional(o) => Type::optional(self.convert_to_wire_type(&o.ty)),
+            Type::Array(a) => Type::array(self.convert_to_wire_type(&a.ty), a.len),
             Type::Struct(st) => {
                 let mut s = StructType::new();
                 for (name, ty) in &st.members {
                     if !ty.contains_into(self) {
                         s.members.push((name.clone(), ty.clone()));
                     } else {
-                        s.members.push((name.clone(), self.generate_wire_type(ty)));
+                        s.members.push((name.clone(), self.convert_to_wire_type(ty)));
                     }
                 }
                 Type::Struct(s)
@@ -172,7 +172,7 @@ impl Definitons {
                     if !ty.contains_into(self) {
                         s.tys.push(ty.clone());
                     } else {
-                        s.tys.push(self.generate_wire_type(ty));
+                        s.tys.push(self.convert_to_wire_type(ty));
                     }
                 }
                 Type::Union(s)
@@ -185,7 +185,7 @@ impl Definitons {
         };
     }
 
-    pub fn add_type(&mut self, name: String, ty: Type) {
+    pub fn register_type(&mut self, name: String, ty: Type) {
         self.types.insert(
             name.clone(),
             TypeInformation {
@@ -197,9 +197,9 @@ impl Definitons {
     }
 
     /// Load and normalize the DSL definitions file, annotating types with conversion metadata.
-    pub fn get_definitions<P: AsRef<Path>>(p: P) -> Result<Self> {
+    pub fn load_from_path<P: AsRef<Path>>(p: P) -> Result<Self> {
         let mut defs = super::dsl::get_definitions(p)?;
-        defs.check_if_defined();
+        defs.validate_type_references();
 
         // I hate the borrow checker sometimes
         let mut new_types = HashMap::new();
@@ -209,8 +209,8 @@ impl Definitons {
             }
 
             let wire_name = format!("_{name}");
-            let wire = defs.generate_wire_type(&ty.ty);
-            let domain = defs.generate_domain_type(&ty.ty);
+            let wire = defs.convert_to_wire_type(&ty.ty);
+            let domain = defs.convert_to_domain_type(&ty.ty);
 
             new_types.insert(
                 name.clone(),
@@ -231,7 +231,7 @@ impl Definitons {
     }
 
     /// Emit code for every domain type using the provided generator implementation.
-    pub fn generate_type_definitons<G: Generator + ?Sized>(&self, generator: &G) -> Code {
+    pub fn render_domain_type_definitions<G: Generator + ?Sized>(&self, generator: &G) -> Code {
         let mut code = Code::new_segment();
         for (name, ty) in &self.types {
             let ty = ty.get_domain_type();
@@ -241,7 +241,7 @@ impl Definitons {
     }
 
     /// Emit the wire-model definitions for types that require conversion.
-    pub fn generate_wire_type_definitons<G: Generator + ?Sized>(&self, generator: &G) -> Code {
+    pub fn render_wire_type_definitions<G: Generator + ?Sized>(&self, generator: &G) -> Code {
         let mut code = Code::new_segment();
         for (_, ty) in &self.types {
             if let Some(c) = &ty.conversion {
@@ -253,7 +253,7 @@ impl Definitons {
     }
 
     /// Emit the helper functions that translate between domain and wire representations.
-    pub fn generate_translation_code<G: Generator + ?Sized>(&self, generator: &G) -> Code {
+    pub fn render_conversion_helpers<G: Generator + ?Sized>(&self, generator: &G) -> Code {
         let mut code = Code::new_segment();
         for (_, ty) in &self.types {
             if ty.conversion.is_none() {
@@ -266,7 +266,7 @@ impl Definitons {
     }
 
     /// Emit every endpoint definition (handlers or client functions) via the generator.
-    pub fn generate_endpoint_definitons<G: Generator + ?Sized>(&self, generator: &G) -> Code {
+    pub fn render_endpoint_definitions<G: Generator + ?Sized>(&self, generator: &G) -> Code {
         let mut code = Code::new_segment();
 
         for (name, endpoint) in &self.end_points {
@@ -277,36 +277,36 @@ impl Definitons {
     }
 
     /// Build a standalone chunk of code that only contains type declarations.
-    pub fn generate_type_code<G: Generator + ?Sized>(&self, generator: &G) -> Code {
+    pub fn build_type_module<G: Generator + ?Sized>(&self, generator: &G) -> Code {
         let mut code = Code::new_segment();
         code.add_child(generator.generate_type_header(self));
-        code.add_child(self.generate_type_definitons(generator));
+        code.add_child(self.render_domain_type_definitions(generator));
 
         return code;
     }
 
     /// Build the endpoint-only output (wire structs + translations + endpoints).
-    pub fn generate_endpoint_code<G: Generator + ?Sized>(&self, generator: &G) -> Code {
+    pub fn build_endpoint_module<G: Generator + ?Sized>(&self, generator: &G) -> Code {
         let mut code = Code::new_segment();
         code.add_child(generator.generate_endpoint_header(self));
-        code.add_child(self.generate_wire_type_definitons(generator));
-        code.add_child(self.generate_translation_code(generator));
-        code.add_child(self.generate_endpoint_definitons(generator));
+        code.add_child(self.render_wire_type_definitions(generator));
+        code.add_child(self.render_conversion_helpers(generator));
+        code.add_child(self.render_endpoint_definitions(generator));
 
         return code;
     }
 
     /// Build a single combined output that contains both type and endpoint definitions.
-    pub fn generate_united_code<G: Generator + ?Sized>(&self, generator: &G) -> Code {
+    pub fn build_combined_module<G: Generator + ?Sized>(&self, generator: &G) -> Code {
         let mut code = Code::new_segment();
         code.add_child(generator.generate_endpoint_header(self));
         code.add_child(generator.generate_type_header(self));
 
-        code.add_child(self.generate_type_definitons(generator));
+        code.add_child(self.render_domain_type_definitions(generator));
 
-        code.add_child(self.generate_wire_type_definitons(generator));
-        code.add_child(self.generate_translation_code(generator));
-        code.add_child(self.generate_endpoint_definitons(generator));
+        code.add_child(self.render_wire_type_definitions(generator));
+        code.add_child(self.render_conversion_helpers(generator));
+        code.add_child(self.render_endpoint_definitions(generator));
 
         return code;
     }

@@ -65,7 +65,7 @@ pub struct TS {
 }
 
 impl TS {
-    fn get_primitive_signature(&self, p: &PrimitiveType) -> String {
+    fn ts_signature_for_primitive(&self, p: &PrimitiveType) -> String {
         use PrimitiveType as PT;
         return match p {
             PT::Bool => "boolean",
@@ -75,14 +75,14 @@ impl TS {
         .to_string();
     }
 
-    fn get_repr_signature(&self, r: &Repr) -> String {
+    fn ts_signature_for_repr(&self, r: &Repr) -> String {
         match r {
             Repr::Datetime => "Date",
         }
         .to_string()
     }
 
-    fn get_union_signature(&self, e: &UnionType) -> String {
+    fn ts_union_literal(&self, e: &UnionType) -> String {
         let mut poss = e.tys.iter();
         let mut s = format!("{}", poss.next().unwrap());
         for param in poss {
@@ -93,20 +93,24 @@ impl TS {
     }
 
     /// Translate a DSL `Type` into the appropriate TypeScript type literal.
-    fn get_type_signature(&self, defs: &Definitons, ty: &Type) -> String {
+    fn ts_type_literal(&self, defs: &Definitons, ty: &Type) -> String {
         return match ty {
-            Type::Primitive(p) => self.get_primitive_signature(p),
-            Type::Repr(r) => self.get_repr_signature(r),
-            Type::Optional(o) => format!("{} | null", self.get_type_signature(defs, &o.ty)),
-            Type::Array(a) => format!("{}[]", self.get_type_signature(defs, &a.ty)),
-            Type::Into(i) => format!("{}", self.get_repr_signature(&i.into)),
+            Type::Primitive(p) => self.ts_signature_for_primitive(p),
+            Type::Repr(r) => self.ts_signature_for_repr(r),
+            Type::Optional(o) => format!("{} | null", self.ts_type_literal(defs, &o.ty)),
+            Type::Array(a) => format!("{}[]", self.ts_type_literal(defs, &a.ty)),
+            Type::Into(i) => format!("{}", self.ts_signature_for_repr(&i.into)),
             Type::Named(m) => format!("{m}",),
             Type::Null => format!("null",),
             Type::Literal(l) => {
                 format!("{l}")
             }
+<<<<<<< HEAD
             e => unimplemented!("{e:?}"),
             Type::Union(u) => self.get_union_signature(u),
+=======
+            Type::Union(u) => self.ts_union_literal(u),
+>>>>>>> f1bb606 (method renaming)
 
             Type::Undetermined(u) => {
                 panic!("Undetermined: {u:?} reached a TS generator {defs:#?}",)
@@ -117,7 +121,7 @@ impl TS {
     }
 
     /// Produce query-string serialization code for a single endpoint parameter.
-    fn get_query_code<S: AsRef<str>>(&self, name: S, ty: &Type) -> Code {
+    fn emit_query_param_assignment<S: AsRef<str>>(&self, name: S, ty: &Type) -> Code {
         let mut code = Code::new_segment();
         let name = name.as_ref();
 
@@ -134,7 +138,7 @@ impl TS {
     }
 
     /// Build the expression that converts an "input" value into its wire representation.
-    fn get_convertion_string<S: AsRef<str>>(
+    fn build_conversion_expression<S: AsRef<str>>(
         &self,
         name: S,
         ty: &Type,
@@ -151,13 +155,13 @@ impl TS {
             Type::Optional(opt) => {
                 format!(
                     "{name} !== null ? {} : null",
-                    self.get_convertion_string(name, &opt.ty, defs)
+                    self.build_conversion_expression(name, &opt.ty, defs)
                 )
             }
             Type::Array(arr) => {
                 format!(
                     "_{name}.map(e => {{ return {}}})",
-                    self.get_convertion_string("e", &arr.ty, defs)
+                    self.build_conversion_expression("e", &arr.ty, defs)
                 )
             }
             Type::Struct(model) => {
@@ -168,30 +172,39 @@ impl TS {
     }
 
     /// Emit the error-handling branch according to the configured strategy.
-    fn handle_error(&self, err: &String, ty: &String) -> String {
+    fn emit_error_branch(&self, error_expr: &String, return_type: &String) -> String {
         return match self.error_handling {
-            ErrorHandling::Result => format!("return Result.Err<{ty}, Error>({err});"),
-            ErrorHandling::Pair => format!("return [{err}, null]);"),
-            ErrorHandling::Raise => format!("throw {err};"),
+            ErrorHandling::Result => {
+                format!("return Result.Err<{return_type}, Error>({error_expr});")
+            }
+            ErrorHandling::Pair => format!("return [{error_expr}, null]);"),
+            ErrorHandling::Raise => format!("throw {error_expr};"),
         };
     }
 
     /// Emit the success-handling branch according to the configured strategy.
-    fn handle_ok(&self, ok: &String, ty: &String) -> String {
+    fn emit_success_branch(&self, value_expr: &String, return_type: &String) -> String {
         return match self.error_handling {
-            ErrorHandling::Result => format!("return Result.Ok<{ty}, Error>({ok});"),
-            ErrorHandling::Pair => format!("return [{ok}, null]"),
-            ErrorHandling::Raise => format!("return {ty};"),
+            ErrorHandling::Result => {
+                format!("return Result.Ok<{return_type}, Error>({value_expr});")
+            }
+            ErrorHandling::Pair => format!("return [{value_expr}, null]"),
+            ErrorHandling::Raise => format!("return {value_expr};"),
         };
     }
 
     /// Guard against missing fields on loosely typed JSON responses.
-    fn validate_param(&self, name: &String, _expected_type: &Type, return_type: &String) -> Code {
+    fn guard_missing_response_field(
+        &self,
+        name: &String,
+        _expected_type: &Type,
+        return_type: &String,
+    ) -> Code {
         // TODO: add type guards
         let mut code = Code::new_segment();
         code.add_line(format!("if(j.{name} === undefined)"));
         let body = code.create_child_block();
-        body.add_line(self.handle_error(
+        body.add_line(self.emit_error_branch(
             &format!("new Error('field {name} is undefined')"),
             &return_type,
         ));
@@ -223,14 +236,15 @@ impl Generator for TS {
         // for (name, ty) in &model.params {
         //     obj_body.add_line(format!(
         //         "{name} : {},",
-        //         self.get_convertion_string(format!("m.{name}"), ty, defs)
+        //         self.build_conversion_expression(format!("m.{name}"), ty, defs)
         //     ));
         // }
         // let _ = obj_body;
         // func_body.add_line(format!("}} as _{model_name};"));
         // segment.add_line("}".to_string());
 
-        todo!()
+        // todo!()
+        return Code::new_segment();
     }
 
     fn generate_type(&self, name: &str, ty: &Type, public: bool, defs: &Definitons) -> Code {
@@ -243,8 +257,7 @@ impl Generator for TS {
                 ));
                 let member_block = code.create_child_block();
                 for (name, ty) in &s.members {
-                    member_block
-                        .add_line(format!("{name}: {},", self.get_type_signature(defs, &ty)));
+                    member_block.add_line(format!("{name}: {},", self.ts_type_literal(defs, &ty)));
                 }
                 code.add_line("}".to_string());
             }
@@ -260,11 +273,9 @@ impl Generator for TS {
         let mut function_decl = format!("export async function {}(", name);
         for (name, ty) in &endpoint.params {
             if ty.contains_into(defs) {
-                function_decl +=
-                    format!("_{name}: {}, ", self.get_type_signature(defs, &ty)).as_str();
+                function_decl += format!("_{name}: {}, ", self.ts_type_literal(defs, &ty)).as_str();
             } else {
-                function_decl +=
-                    format!("{name}: {}, ", self.get_type_signature(defs, &ty)).as_str();
+                function_decl += format!("{name}: {}, ", self.ts_type_literal(defs, &ty)).as_str();
             }
         }
         function_decl += "){";
@@ -278,7 +289,7 @@ impl Generator for TS {
 
             func_body.add_line(format!(
                 "const {name} = {};",
-                self.get_convertion_string(name, ty, defs)
+                self.build_conversion_expression(name, ty, defs)
             ));
         }
 
@@ -288,7 +299,7 @@ impl Generator for TS {
 
         for (name, ty) in &endpoint.params {
             if let EndPointParamKind::Query = endpoint.get_param_type(&name).unwrap() {
-                query.add_child(self.get_query_code(name, &ty));
+                query.add_child(self.emit_query_param_assignment(name, &ty));
                 has_query = true;
             }
         }
@@ -336,7 +347,7 @@ impl Generator for TS {
         fetch_code.add_line("});".to_string());
         func_body.add_child(fetch_code);
 
-        let return_type = self.get_type_signature(defs, &endpoint.return_type);
+        let return_type = self.ts_type_literal(defs, &endpoint.return_type);
 
         // request error
         let error = "new Error(response.statusText)".to_string();
@@ -344,10 +355,10 @@ impl Generator for TS {
         let if_segment = func_body.create_child_segment();
         if_segment.add_line("if(!response.ok)".to_string());
         let if_body = if_segment.create_child_block();
-        if_body.add_line(self.handle_error(&error, &return_type));
+        if_body.add_line(self.emit_error_branch(&error, &return_type));
 
         if let Type::Null = endpoint.return_type {
-            func_body.add_line(self.handle_ok(&"null".to_string(), &return_type));
+            func_body.add_line(self.emit_success_branch(&"null".to_string(), &return_type));
             code.add_line("}".to_string());
             return code;
         }
@@ -358,18 +369,22 @@ impl Generator for TS {
         match &endpoint.return_type {
             Type::Struct(m) => {
                 for (name, ty) in &m.members {
-                    response_segment.add_child(self.validate_param(name, ty, &return_type));
+                    response_segment.add_child(self.guard_missing_response_field(
+                        name,
+                        ty,
+                        &return_type,
+                    ));
                 }
                 func_body.add_line(format!("return j as {return_type}"));
             }
             Type::Primitive(p) => {
-                let expected_type = self.get_primitive_signature(p);
+                let expected_type = self.ts_signature_for_primitive(p);
                 response_segment.add_line(format!(
                     "if(typeof j != '{}')",
-                    self.get_primitive_signature(p)
+                    self.ts_signature_for_primitive(p)
                 ));
                 let if_body = response_segment.create_child_block();
-                if_body.add_line(self.handle_error(
+                if_body.add_line(self.emit_error_branch(
                     &format!("new Error('response was not a {expected_type}')"),
                     &return_type,
                 ));
