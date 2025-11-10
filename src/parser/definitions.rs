@@ -1,7 +1,7 @@
 use super::{endpoint::*, types::*};
 use crate::builder::Code;
 use anyhow::Result;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 #[derive(Debug)]
@@ -58,6 +58,22 @@ impl Definitons {
         Self {
             types: HashMap::new(),
             end_points: HashMap::new(),
+        }
+    }
+
+    pub fn validate_untagged_union(&self, u: &UnionType) {
+        for ty in &u.tys {
+            match ty {
+                Type::Struct(_) => {
+                    panic!("untagged union that contains structs is not valid yet!")
+                }
+                Type::Named(name) => {
+                    if let Type::Struct(_) = self.types.get(name).unwrap().ty {
+                        panic!("untagged union that contains named structs is not valid yet!")
+                    }
+                }
+                _ => {}
+            }
         }
     }
 
@@ -211,6 +227,12 @@ impl Definitons {
         // I hate the borrow checker sometimes
         let mut new_types = HashMap::new();
         for (name, ty) in &defs.types {
+            if let Type::Union(u) = &ty.ty {
+                if u.kind == UnionKind::Untagged {
+                    defs.validate_untagged_union(u);
+                }
+            }
+
             if !ty.ty.contains_into(&defs) {
                 continue;
             }

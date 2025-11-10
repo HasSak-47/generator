@@ -89,7 +89,19 @@ impl TS {
             s += format!(" | {param}").as_str();
         }
 
-        s
+        return match e.kind {
+            UnionKind::Untagged => s,
+            UnionKind::External => {
+                let mut poss = e.tys.iter();
+                let mut tag = format!("\"{}\"", poss.next().unwrap());
+                for param in poss {
+                    tag += format!(" | \"{param}\"").as_str();
+                }
+
+                return format!("{{tag: {tag}, data: {s}}}");
+            }
+            UnionKind::Interal => todo!(),
+        };
     }
 
     /// Translate a DSL `Type` into the appropriate TypeScript type literal.
@@ -351,14 +363,8 @@ impl Generator for TS {
             }
 
             Type::Union(u) => {
-                let mut union_str = String::new();
                 assert_ne!(u.tys.len(), 0);
-
-                let mut iter = u.tys.iter();
-                union_str += self.ts_type_literal(defs, iter.next().unwrap()).as_str();
-                for ty in iter {
-                    union_str += format!(" | {}", self.ts_type_literal(defs, ty)).as_str();
-                }
+                let union_str = self.ts_union_literal(u);
 
                 code.add_line(format!(
                     "{}type {name} = {union_str}",

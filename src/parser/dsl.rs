@@ -95,16 +95,19 @@ fn handle_type<'a>(p: Pair<'a, Rule>) -> Result<Type> {
             });
         }
         Rule::union_type => {
-            let inner = next.into_inner();
+            let mut inner = next.into_inner();
             let mut types = Vec::new();
             let kind = inner.peek().unwrap();
             let kind = match kind.as_rule() {
-                Rule::union_tag => match kind.as_str() {
-                    "inner" => UnionKind::Interal,
-                    "outer" => UnionKind::External,
-                    "untagged" => UnionKind::Untagged,
-                    _ => unreachable!(),
-                },
+                Rule::union_tag => {
+                    inner.next();
+                    match kind.as_str() {
+                        "inner" => UnionKind::Interal,
+                        "outer" => UnionKind::External,
+                        "untagged" => UnionKind::Untagged,
+                        _ => unreachable!(),
+                    }
+                }
                 Rule::ty => UnionKind::Untagged,
                 _ => unreachable!(),
             };

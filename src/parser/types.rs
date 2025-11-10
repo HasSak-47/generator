@@ -69,7 +69,7 @@ pub enum LiteralType {
     Float(f64),
 }
 
-#[derive(PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum UnionKind {
     Untagged,
     Interal,
@@ -287,6 +287,7 @@ impl Display for LiteralType {
 
 impl Display for UnionType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}: ", self.kind)?;
         for ty in &self.tys {
             write!(f, "| {ty} ")?;
         }
@@ -361,8 +362,9 @@ impl Debug for LiteralType {
 
 impl Debug for UnionType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}: ", self.kind)?;
         for ty in &self.tys {
-            write!(f, "or {ty}")?;
+            write!(f, "| {ty}")?;
         }
 
         return Ok(());
