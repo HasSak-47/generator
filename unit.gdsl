@@ -13,6 +13,7 @@ type Bar = {
 type Baz = {
     foo: {Foo | Bar},
     bar: string as datetime,
+    baz: Foo,
 }
 
 request_foo(str: string, date: string as datetime, foo: Foo) @put "/request_foo/" -> Foo[]

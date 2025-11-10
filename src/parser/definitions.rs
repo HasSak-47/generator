@@ -161,7 +161,8 @@ impl Definitons {
                     if !ty.contains_into(self) {
                         s.members.push((name.clone(), ty.clone()));
                     } else {
-                        s.members.push((name.clone(), self.convert_to_wire_type(ty)));
+                        s.members
+                            .push((name.clone(), self.convert_to_wire_type(ty)));
                     }
                 }
                 Type::Struct(s)
@@ -177,7 +178,13 @@ impl Definitons {
                 }
                 Type::Union(s)
             }
-            Type::Named(name) => Type::Named(format!("_{name}")),
+            Type::Named(name) => {
+                if self.types[name].ty.contains_into(self) {
+                    Type::Named(format!("_{name}"))
+                } else {
+                    Type::Named(name.clone())
+                }
+            }
 
             _ => {
                 unreachable!()

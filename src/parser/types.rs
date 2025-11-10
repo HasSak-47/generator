@@ -153,20 +153,11 @@ impl Type {
         Self::Into(IntoType::new(from, to))
     }
 
-    /// Recursively collect every model referenced by this type (including nested fields).
-    pub fn unfold_models(&self, defs: &Definitons) {
-        todo!()
-        // let mut s = HashSet::new();
-        // if let Self::Struct(m) = self {
-        //     s.insert(m.clone());
-        //     for (_, ty) in &defs.models[m].members {
-        //         for v in ty.unfold_models(defs) {
-        //             s.insert(v);
-        //         }
-        //     }
-        // }
-
-        // return s;
+    pub fn get_struct(&self) -> &StructType {
+        match self {
+            Self::Struct(s) => return s,
+            _ => panic!("type was not a struct"),
+        }
     }
 
     /// Returns true if the type or any nested field needs an `Into` conversion before transport.
@@ -177,6 +168,14 @@ impl Type {
             Self::Array(a) => a.ty.contains_into(defs),
             Self::Struct(m) => {
                 for (_, ty) in &m.members {
+                    if ty.contains_into(defs) {
+                        return true;
+                    }
+                }
+                false
+            }
+            Self::Union(u) => {
+                for ty in &u.tys {
                     if ty.contains_into(defs) {
                         return true;
                     }
@@ -278,7 +277,7 @@ impl Display for LiteralType {
 impl Display for UnionType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for ty in &self.tys {
-            write!(f, "or {ty}")?;
+            write!(f, "| {ty} ")?;
         }
 
         return Ok(());
@@ -307,7 +306,7 @@ impl Display for Type {
 
 impl Debug for PrimitiveType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Primitive<{self}>")
+        write!(f, "{self}")
     }
 }
 

@@ -137,8 +137,8 @@ impl TS {
         return code;
     }
 
-    /// Build the expression that converts an "input" value into its wire representation.
-    fn build_conversion_expression<S: AsRef<str>>(
+    /// Build the expression that converts an "input" value into its domain representation.
+    fn build_into_domain_expression<S: AsRef<str>>(
         &self,
         name: S,
         ty: &Type,
@@ -149,25 +149,61 @@ impl TS {
         match ty {
             Type::Into(into) => {
                 return match into.into {
-                    Repr::Datetime => format!("_{name}.toISOString()"),
+                    Repr::Datetime => format!("new Date({name})"),
                 };
             }
             Type::Optional(opt) => {
                 format!(
                     "{name} !== null ? {} : null",
-                    self.build_conversion_expression(name, &opt.ty, defs)
+                    self.build_into_domain_expression(name, &opt.ty, defs)
                 )
             }
             Type::Array(arr) => {
                 format!(
-                    "_{name}.map(e => {{ return {}}})",
-                    self.build_conversion_expression("e", &arr.ty, defs)
+                    "{name}.map(e => {{ return {}}})",
+                    self.build_into_domain_expression("e", &arr.ty, defs)
                 )
             }
-            Type::Struct(model) => {
-                format!("transform_{model}(_{name})")
+            Type::Named(ty_name) => format!("into_domain_{ty_name}({name})"),
+            Type::Union(u) => {
+                format!("((u): {u} => {{}})({name})")
             }
-            _ => name.to_string(),
+            e => unreachable!("reached: {e}"),
+        }
+    }
+
+    /// Build the expression that converts an "input" value into its wire representation.
+    fn build_into_wire_expression<S: AsRef<str>>(
+        &self,
+        name: S,
+        ty: &Type,
+        defs: &Definitons,
+    ) -> String {
+        let name = name.as_ref();
+
+        match ty {
+            Type::Into(into) => {
+                return match into.into {
+                    Repr::Datetime => format!("{name}.toISOString()"),
+                };
+            }
+            Type::Optional(opt) => {
+                format!(
+                    "{name} !== null ? {} : null",
+                    self.build_into_wire_expression(name, &opt.ty, defs)
+                )
+            }
+            Type::Array(arr) => {
+                format!(
+                    "{name}.map(e => {{ return {}}})",
+                    self.build_into_wire_expression("e", &arr.ty, defs)
+                )
+            }
+            Type::Named(ty_name) => format!("into_wire_{ty_name}({name})"),
+            Type::Union(u) => {
+                format!("((u: {u}) => {{}})({name})")
+            }
+            e => unreachable!("reached: {e}"),
         }
     }
 
@@ -211,6 +247,32 @@ impl TS {
 
         return code;
     }
+
+    fn generate_struct_translation<F: Fn(String, &Type, &Definitons) -> String>(
+        &self,
+        struct_name: &String,
+        s: &StructType,
+        defs: &Definitons,
+        translator: F,
+    ) -> Code {
+        let mut code = Code::new_segment();
+        code.add_line("let wire_m = {".to_string());
+        let body = code.create_child_block();
+        for (name, ty) in &s.members {
+            if ty.contains_into(defs) {
+                body.add_line(format!(
+                    "{name}: {},",
+                    translator(format!("m.{name}"), ty, defs)
+                ));
+            } else {
+                body.add_line(format!("{name}: m.{name},"));
+            }
+        }
+
+        code.add_line(format!("}}"));
+        code.add_line("return wire_m".to_string());
+        return code;
+    }
 }
 
 impl Generator for TS {
@@ -224,27 +286,36 @@ impl Generator for TS {
     }
 
     fn generate_type_translation(&self, ty: &TypeInformation, defs: &Definitons) -> Code {
+        let name = &ty.name;
         let mut code = Code::new_segment();
-        let type_name = &ty.name;
 
-        code.add_line(format!("function transform_{type_name}(_m: {type_name}){{"));
+        let domain_code = code.create_child_segment();
+        domain_code.add_line(format!("function into_domain_{name}(m: _{name}){{"));
+        match &ty.ty {
+            Type::Struct(s) => domain_code.add_child(self.generate_struct_translation(
+                name,
+                &s,
+                defs,
+                |name, ty, defs| self.build_into_domain_expression(name, ty, defs),
+            )),
+            _ => todo!(),
+        }
+        domain_code.add_line("}".to_string());
 
-        // let func_body = segment.create_child_block();
-        // func_body.add_line("return {".to_string());
-        // let obj_body = func_body.create_child_block();
+        let wire_code = code.create_child_segment();
+        wire_code.add_line(format!("function into_wire_{name}(m: {name}){{"));
+        match &ty.ty {
+            Type::Struct(s) => wire_code.add_child(self.generate_struct_translation(
+                name,
+                &s,
+                defs,
+                |name, ty, defs| self.build_into_wire_expression(name, ty, defs),
+            )),
+            _ => todo!(),
+        }
+        wire_code.add_line("}".to_string());
 
-        // for (name, ty) in &model.params {
-        //     obj_body.add_line(format!(
-        //         "{name} : {},",
-        //         self.build_conversion_expression(format!("m.{name}"), ty, defs)
-        //     ));
-        // }
-        // let _ = obj_body;
-        // func_body.add_line(format!("}} as _{model_name};"));
-        // segment.add_line("}".to_string());
-
-        // todo!()
-        return Code::new_segment();
+        return code;
     }
 
     fn generate_type(&self, name: &str, ty: &Type, public: bool, defs: &Definitons) -> Code {
@@ -289,7 +360,7 @@ impl Generator for TS {
 
             func_body.add_line(format!(
                 "const {name} = {};",
-                self.build_conversion_expression(name, ty, defs)
+                self.build_into_wire_expression(format!("_{name}"), ty, defs)
             ));
         }
 
