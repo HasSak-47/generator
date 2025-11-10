@@ -97,10 +97,24 @@ fn handle_type<'a>(p: Pair<'a, Rule>) -> Result<Type> {
         Rule::union_type => {
             let inner = next.into_inner();
             let mut types = Vec::new();
+            let kind = inner.peek().unwrap();
+            let kind = match kind.as_rule() {
+                Rule::union_tag => match kind.as_str() {
+                    "inner" => UnionKind::Interal,
+                    "outer" => UnionKind::External,
+                    "untagged" => UnionKind::Untagged,
+                    _ => unreachable!(),
+                },
+                Rule::ty => UnionKind::Untagged,
+                _ => unreachable!(),
+            };
             for ty in inner {
-                types.push(handle_type(ty)?);
+                let new_ty = handle_type(ty)?;
+                types.push(new_ty);
             }
-            return Ok(Type::Union(UnionType::new(types)));
+            let mut u = UnionType::new(types);
+            u.kind = kind;
+            return Ok(Type::Union(u));
         }
         Rule::struct_type => handle_struct(next)?,
         e => unreachable!("unreachable rule reached? : {e:?}"),
@@ -142,98 +156,6 @@ fn handle_member_field<'a>(p: Pair<'a, Rule>) -> Result<(String, Type)> {
     unreachable!("not a member definition!")
 }
 
-#[cfg(test)]
-mod test {
-    use crate::parser::dsl;
-
-    use super::*;
-    #[test]
-    fn type_parsing_test() -> anyhow::Result<()> {
-        let tests = &[
-            ("int_32", Type::int(Some(32))),
-            ("string", Type::string(None)),
-            ("int?", Type::optional(Type::int(None))),
-            ("int_32[]", Type::array(Type::int(Some(32)), None)),
-            (
-                "int_32[]?",
-                Type::optional(Type::array(Type::int(Some(32)), None)),
-            ),
-            (
-                "string as datetime",
-                Type::into(Type::string(None), Repr::Datetime),
-            ),
-            (
-                "string as datetime[]",
-                Type::array(Type::into(Type::string(None), Repr::Datetime), None),
-            ),
-            ("null", Type::Null),
-            ("1", Type::Literal(LiteralType::Int(1))),
-            ("10", Type::Literal(LiteralType::Int(10))),
-            ("-0.1", Type::Literal(LiteralType::Float(-0.1))),
-            (
-                "\"string\"",
-                Type::Literal(LiteralType::String("string".to_string())),
-            ),
-            ("false", Type::Literal(LiteralType::Bool(false))),
-            ("true", Type::Literal(LiteralType::Bool(true))),
-            (
-                "{\"ok\" | \"err\"}",
-                Type::Union(UnionType {
-                    tys: vec![
-                        Type::Literal(LiteralType::String("ok".to_string())),
-                        Type::Literal(LiteralType::String("err".to_string())),
-                    ],
-                }),
-            ),
-            (
-                "{ foo: int, bar: string as datetime? }",
-                Type::Struct(StructType {
-                    members: vec![
-                        ("foo".to_string(), Type::int(None)),
-                        (
-                            "bar".to_string(),
-                            Type::optional(Type::into(Type::string(None), Repr::Datetime)),
-                        ),
-                    ],
-                }),
-            ),
-            (
-                "{{foo: \"ok\", bar: string} | {foo:\"err\", bar: int, baz: string?}}",
-                Type::Union(UnionType {
-                    tys: vec![
-                        Type::Struct(StructType {
-                            members: vec![
-                                (
-                                    "foo".to_string(),
-                                    Type::Literal(LiteralType::String("ok".to_string())),
-                                ),
-                                ("bar".to_string(), Type::string(None)),
-                            ],
-                        }),
-                        Type::Struct(StructType {
-                            members: vec![
-                                (
-                                    "foo".to_string(),
-                                    Type::Literal(LiteralType::String("err".to_string())),
-                                ),
-                                ("bar".to_string(), Type::int(None)),
-                                ("baz".to_string(), Type::optional(Type::string(None))),
-                            ],
-                        }),
-                    ],
-                }),
-            ),
-        ];
-        for (text, ty) in tests {
-            let p = LangParser::parse(Rule::ty, text)?.next().unwrap();
-            let target_ty = dsl::handle_type(p)?;
-            assert_eq!(*ty, target_ty, "failed to process {text} {ty}");
-        }
-
-        return Ok(());
-    }
-}
-
 /// Load the DSL file, parse it with pest, and translate the AST into `Definitons`.
 pub fn get_definitions<P: AsRef<Path>>(p: P) -> Result<Definitons> {
     let mut file = File::open(p)?;
@@ -252,6 +174,15 @@ pub fn get_definitions<P: AsRef<Path>>(p: P) -> Result<Definitons> {
 
     for inner in p.into_inner() {
         match inner.as_rule() {
+            Rule::ty_definition => {
+                let mut iter = inner.into_inner();
+                let name = iter.next().unwrap();
+                let ty = iter.next().unwrap();
+                assert_eq!(name.as_rule(), Rule::name);
+                assert_eq!(ty.as_rule(), Rule::ty);
+
+                defs.register_type(name.as_str().to_string(), handle_type(ty).unwrap());
+            }
             Rule::struct_definition => {
                 let mut iter = inner.into_inner();
                 let name = iter.next().unwrap();
@@ -292,9 +223,97 @@ pub fn get_definitions<P: AsRef<Path>>(p: P) -> Result<Definitons> {
                 defs.end_points.insert(name, end_point);
             }
             Rule::COMMENT | Rule::EOI => {}
-            _ => unreachable!("how did you got here??"),
+            r => unreachable!("how did you got here {r:?}??"),
         }
     }
 
     return Ok(defs);
+}
+
+#[cfg(test)]
+mod test {
+    use crate::parser::dsl;
+
+    use super::*;
+    #[test]
+    fn type_parsing_test() -> anyhow::Result<()> {
+        let tests = &[
+            ("int_32", Type::int(Some(32))),
+            ("string", Type::string(None)),
+            ("int?", Type::optional(Type::int(None))),
+            ("int_32[]", Type::array(Type::int(Some(32)), None)),
+            (
+                "int_32[]?",
+                Type::optional(Type::array(Type::int(Some(32)), None)),
+            ),
+            (
+                "string as datetime",
+                Type::into(Type::string(None), Repr::Datetime),
+            ),
+            (
+                "string as datetime[]",
+                Type::array(Type::into(Type::string(None), Repr::Datetime), None),
+            ),
+            ("null", Type::Null),
+            ("1", Type::Literal(LiteralType::Int(1))),
+            ("10", Type::Literal(LiteralType::Int(10))),
+            ("-0.1", Type::Literal(LiteralType::Float(-0.1))),
+            (
+                "\"string\"",
+                Type::Literal(LiteralType::String("string".to_string())),
+            ),
+            ("false", Type::Literal(LiteralType::Bool(false))),
+            ("true", Type::Literal(LiteralType::Bool(true))),
+            (
+                "{\"ok\" | \"err\"}",
+                Type::Union(UnionType::new(vec![
+                    Type::Literal(LiteralType::String("ok".to_string())),
+                    Type::Literal(LiteralType::String("err".to_string())),
+                ])),
+            ),
+            (
+                "{ foo: int, bar: string as datetime? }",
+                Type::Struct(StructType {
+                    members: vec![
+                        ("foo".to_string(), Type::int(None)),
+                        (
+                            "bar".to_string(),
+                            Type::optional(Type::into(Type::string(None), Repr::Datetime)),
+                        ),
+                    ],
+                }),
+            ),
+            (
+                "{{foo: \"ok\", bar: string} | {foo:\"err\", bar: int, baz: string?}}",
+                Type::Union(UnionType::new(vec![
+                    Type::Struct(StructType {
+                        members: vec![
+                            (
+                                "foo".to_string(),
+                                Type::Literal(LiteralType::String("ok".to_string())),
+                            ),
+                            ("bar".to_string(), Type::string(None)),
+                        ],
+                    }),
+                    Type::Struct(StructType {
+                        members: vec![
+                            (
+                                "foo".to_string(),
+                                Type::Literal(LiteralType::String("err".to_string())),
+                            ),
+                            ("bar".to_string(), Type::int(None)),
+                            ("baz".to_string(), Type::optional(Type::string(None))),
+                        ],
+                    }),
+                ])),
+            ),
+        ];
+        for (text, ty) in tests {
+            let p = LangParser::parse(Rule::ty, text)?.next().unwrap();
+            let target_ty = dsl::handle_type(p)?;
+            assert_eq!(*ty, target_ty, "failed to process {text} {ty}");
+        }
+
+        return Ok(());
+    }
 }

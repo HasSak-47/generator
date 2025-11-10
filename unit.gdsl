@@ -10,8 +10,10 @@ type Bar = {
     baz: int[]
 }
 
+type FooBar = {Foo | Bar}
+
 type Baz = {
-    foo: {Foo | Bar},
+    foo: FooBar,
     bar: string as datetime,
     baz: Foo,
 }

@@ -70,13 +70,24 @@ pub enum LiteralType {
 }
 
 #[derive(PartialEq, Clone)]
+pub enum UnionKind {
+    Untagged,
+    Interal,
+    External,
+}
+
+#[derive(PartialEq, Clone)]
 pub struct UnionType {
     pub tys: Vec<Type>,
+    pub kind: UnionKind,
 }
 
 impl UnionType {
     pub fn new(tys: Vec<Type>) -> Self {
-        return Self { tys };
+        return Self {
+            tys,
+            kind: UnionKind::Untagged,
+        };
     }
 }
 

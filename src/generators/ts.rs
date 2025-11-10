@@ -165,9 +165,6 @@ impl TS {
                 )
             }
             Type::Named(ty_name) => format!("into_domain_{ty_name}({name})"),
-            Type::Union(u) => {
-                format!("((u): {u} => {{}})({name})")
-            }
             e => unreachable!("reached: {e}"),
         }
     }
@@ -200,9 +197,6 @@ impl TS {
                 )
             }
             Type::Named(ty_name) => format!("into_wire_{ty_name}({name})"),
-            Type::Union(u) => {
-                format!("((u: {u}) => {{}})({name})")
-            }
             e => unreachable!("reached: {e}"),
         }
     }
@@ -273,6 +267,17 @@ impl TS {
         code.add_line("return wire_m".to_string());
         return code;
     }
+
+    fn generate_union_translation<F: Fn(String, &Type, &Definitons) -> String>(
+        &self,
+        union_name: &String,
+        u: &UnionType,
+        defs: &Definitons,
+        translator: F,
+    ) -> Code {
+        let mut code = Code::new_segment();
+        return code;
+    }
 }
 
 impl Generator for TS {
@@ -298,6 +303,12 @@ impl Generator for TS {
                 defs,
                 |name, ty, defs| self.build_into_domain_expression(name, ty, defs),
             )),
+            Type::Union(u) => domain_code.add_child(self.generate_union_translation(
+                name,
+                &u,
+                defs,
+                |name, ty, defs| self.build_into_domain_expression(name, ty, defs),
+            )),
             _ => todo!(),
         }
         domain_code.add_line("}".to_string());
@@ -308,6 +319,12 @@ impl Generator for TS {
             Type::Struct(s) => wire_code.add_child(self.generate_struct_translation(
                 name,
                 &s,
+                defs,
+                |name, ty, defs| self.build_into_wire_expression(name, ty, defs),
+            )),
+            Type::Union(u) => wire_code.add_child(self.generate_union_translation(
+                name,
+                &u,
                 defs,
                 |name, ty, defs| self.build_into_wire_expression(name, ty, defs),
             )),
@@ -331,6 +348,22 @@ impl Generator for TS {
                     member_block.add_line(format!("{name}: {},", self.ts_type_literal(defs, &ty)));
                 }
                 code.add_line("}".to_string());
+            }
+
+            Type::Union(u) => {
+                let mut union_str = String::new();
+                assert_ne!(u.tys.len(), 0);
+
+                let mut iter = u.tys.iter();
+                union_str += self.ts_type_literal(defs, iter.next().unwrap()).as_str();
+                for ty in iter {
+                    union_str += format!(" | {}", self.ts_type_literal(defs, ty)).as_str();
+                }
+
+                code.add_line(format!(
+                    "{}type {name} = {union_str}",
+                    if public { "export " } else { "" }
+                ));
             }
 
             _ => todo!(),
