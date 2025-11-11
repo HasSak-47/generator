@@ -4,6 +4,7 @@ use anyhow::Result;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
+/// Helper describing the wire/domain pair for a type that requires conversions.
 #[derive(Debug)]
 struct SplitType {
     wire: Type,
@@ -11,6 +12,7 @@ struct SplitType {
     wire_name: String,
 }
 
+/// Metadata for a single named type in the DSL.
 #[derive(Debug)]
 pub struct TypeInformation {
     pub name: String,
@@ -47,6 +49,7 @@ impl TypeInformation {
     }
 }
 
+/// Aggregates all parsed type and endpoint declarations.
 #[derive(Debug)]
 pub struct Definitons {
     pub types: HashMap<String, TypeInformation>,
@@ -61,6 +64,7 @@ impl Definitons {
         }
     }
 
+    /// Ensure untagged unions only contain primitives or other unions (structs would be ambiguous).
     pub fn validate_untagged_union(&self, u: &UnionType) {
         for ty in &u.tys {
             match ty {
@@ -210,6 +214,7 @@ impl Definitons {
         };
     }
 
+    /// Insert a parsed `type` declaration into the definitions map.
     pub fn register_type(&mut self, name: String, ty: Type) {
         self.types.insert(
             name.clone(),

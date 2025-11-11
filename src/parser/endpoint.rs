@@ -1,6 +1,7 @@
 use super::types::*;
 use std::fmt::Display;
 
+/// Supported HTTP verbs in the DSL.
 #[derive(Debug, Default)]
 pub enum EndPointMethod {
     #[default]
@@ -24,6 +25,7 @@ impl Display for EndPointMethod {
     }
 }
 
+/// Semantic representation of a declared endpoint.
 #[derive(Debug, Default)]
 pub struct EndPoint {
     pub params: Vec<(String, Type)>,
@@ -32,6 +34,7 @@ pub struct EndPoint {
     pub return_type: Type,
 }
 
+/// Where a parameter should be sourced from when generating code.
 #[derive(Debug, Default)]
 pub enum EndPointParamKind {
     #[default]

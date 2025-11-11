@@ -7,6 +7,7 @@ use crate::{
 
 use clap::{Parser, ValueEnum};
 
+/// Controls how literal unions (legacy “enums”) are translated in TypeScript output.
 #[derive(ValueEnum, Debug, Default, Clone, PartialEq)]
 #[value(rename_all = "snake_case")]
 pub enum EnumHandling {
@@ -32,6 +33,7 @@ impl Display for EnumHandling {
     }
 }
 
+/// Shapes the return type of HTTP helpers when a request fails.
 #[derive(ValueEnum, Debug, Default, Clone, PartialEq)]
 #[value(rename_all = "snake_case")]
 pub enum ErrorHandling {
@@ -55,11 +57,14 @@ impl Display for ErrorHandling {
     }
 }
 
+/// CLI surface for the TypeScript generator.
 #[derive(Parser, Clone, Default)]
 pub struct TS {
+    /// Determines whether fetch helpers throw, return `Result`, or return `(data, err)` tuples.
     #[arg(short, long, default_value_t = ErrorHandling::Raise)]
     pub error_handling: ErrorHandling,
 
+    /// Legacy flag name that toggles how literal unions are emitted.
     #[arg(short, long, default_value_t = EnumHandling::ToType)]
     pub type_enum: EnumHandling,
 }

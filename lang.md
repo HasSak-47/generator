@@ -1,25 +1,31 @@
+# DSL Reference
+
+This document sketches the language supported by the generator and shows the shape of the emitted code for the bundled targets.
+
+## Example API Description
+
 ```dsl
 # Data models
-model Product {
+type Product = {
     id: int,
     name: string,
     price: float,
 }
 
-model SaleProduct {
+type SaleProduct = {
     product: Product,
     amount: int,
 }
 
-model Sale {
+type Sale = {
     id: int,
     date: string as datetime,
     products: SaleProduct[],
 }
 
-enum Status { "pending", "completed", "cancelled" }
+type Status = {"pending" | "completed" | "cancelled"}
 
-model SaleSummary {
+type SaleSummary = {
     total_sales: int,
     total_amount: float,
     status: Status,
@@ -32,77 +38,76 @@ get_product(id: int) @get "/product/{id}" -> Product
 # Query binding: after and before not in path, not models
 get_sales(after: string as datetime, before: string as datetime?) @get "/sales" -> Sale[]
 
-# Body binding: one model parameter, not in path
+# Body binding: one struct parameter, not in path
 create_sale(sale: Sale) @post "/sales" -> Sale
 
 # Mixed: path + body
 update_product(id: int, product: Product) @put "/product/{id}" -> Product
 
-# Query with enum
+# Query with union field
 get_summary(status: Status?) @get "/sales/summary" -> SaleSummary
-
 ```
 
+**Key concepts**
+
+- Primitive fields map directly to language primitives (`int`, `string`, `float`, `bool`).
+- Tagged and untagged unions use the `{ ... | ... }` syntax (string literals shown above).
+- `Foo as datetime` relies on the representation helpers in the generator (`Date` in TS, `datetime` in Python).
+- `Type?` results in optionals (`T | null` or `Optional[T]`).
+- Arrays use `Type[]`.
+- Endpoints declare positional parameters; bindings are inferred from path segments vs body payloads.
+
+## Generated Code Sketches
+
+Exact output varies based on CLI flags, but the snippets below show the intent.
+
+### FastAPI target
+
 ```python
-# python backend
+import datetime as dt
+from typing import List, Optional
+from fastapi import FastAPI
+from pydantic import BaseModel
+
+app = FastAPI()
+
 class Product(BaseModel):
     id: int
     name: str
+    price: float
 
-class ProductSale(BaseModel):
-    product: string
-    amount: int
-
-class Sale(BaseModel):
-    id: int
-    date: datetime.datetime
-    products: List[ProductSale]
 
 @app.get("/product/{id}")
-def __get_product(id: int) -> product:
+def get_product_endpoint(id: int) -> Product:
     return get_product(id)
 
 
 @app.get("/sales")
-def __get_sales(after: dt.datetime, before: dt.datetime) -> product:
-    return get_product(id)
+def get_sales_endpoint(after: dt.datetime, before: Optional[dt.datetime]) -> List[Sale]:
+    return get_sales(after, before)
 ```
+
+### TypeScript target
 
 ```typescript
-// ts react front end
-type Product = {
+export type Product = {
   id: number;
   name: string;
+  price: number;
 };
 
-type ProductSale = {
-  product: string;
-  amount: number;
-};
-
-type Sale = {
-  id: number;
-  date: Date;
-  products: Array<ProductSale>;
-};
-
-export async function get_product(id: number): Product {
-  let r = await fetch(`/product/${id}`);
-  let j = await r.json();
+export async function get_product(id: number): Promise<Product> {
+  const response = await fetch(`/product/${id}`);
+  if (!response.ok) {
+    throw await response.json();
+  }
+  const payload = await response.json();
   return {
-    id: j.id,
-    name: j.name,
-  };
-}
-
-export async function get_sales(after: Date, before: Date | null): Product {
-  let r = await fetch(`/product/${id}`);
-  let j = await r.json();
-  return {
-    id: j.id,
-    date: new Date(j.date),
-    products: j.name,
-    products: j.products,
+    id: payload.id,
+    name: payload.name,
+    price: payload.price,
   };
 }
 ```
+
+Use `cargo run -- <defs> typescript --help` (or the `python-fast-api` variant) to inspect the switches that tweak union handling and error-handling behaviour at generation time.

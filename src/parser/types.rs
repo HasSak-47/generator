@@ -3,6 +3,7 @@ use std::fmt::{Debug, Display};
 
 use crate::parser::definitions::Definitons;
 
+/// Primitive scalars available in the DSL.
 #[derive(PartialEq, Clone)]
 pub enum PrimitiveType {
     Bool,                    // int_x
@@ -12,6 +13,7 @@ pub enum PrimitiveType {
     String(Option<usize>),   // string_x
 }
 
+/// `T?` wrapper.
 #[derive(PartialEq, Clone)]
 pub struct OptionType {
     pub ty: Box<Type>,
@@ -23,6 +25,7 @@ impl OptionType {
     }
 }
 
+/// `T[n]` or `T[]` wrapper.
 #[derive(PartialEq, Clone)]
 pub struct ArrayType {
     pub ty: Box<Type>,
@@ -38,6 +41,7 @@ impl ArrayType {
     }
 }
 
+/// Representation coercion, e.g. `string as datetime`.
 #[derive(PartialEq, Clone)]
 pub struct IntoType {
     pub from: Box<Type>,
@@ -53,6 +57,7 @@ impl IntoType {
     }
 }
 
+/// Transport representations available to `IntoType`.
 #[derive(PartialEq, Clone)]
 pub enum Repr {
     Datetime,
@@ -60,6 +65,7 @@ pub enum Repr {
 
 impl Repr {}
 
+/// Literal leaf values used when constructing unions or defaults.
 #[derive(PartialEq, Clone)]
 pub enum LiteralType {
     String(String),
@@ -69,6 +75,7 @@ pub enum LiteralType {
     Float(f64),
 }
 
+/// Controls whether a union is untagged, externally tagged, or carries inline discriminators.
 #[derive(Debug, PartialEq, Clone)]
 pub enum UnionKind {
     Untagged,
@@ -76,6 +83,7 @@ pub enum UnionKind {
     External,
 }
 
+/// Wrapper describing `T1 | T2 | ... | Tn` and how it is tagged.
 #[derive(PartialEq, Clone)]
 pub struct UnionType {
     pub tys: Vec<Type>,
@@ -91,6 +99,7 @@ impl UnionType {
     }
 }
 
+/// Struct-like layout (`type Foo = { bar: Baz }`).
 #[derive(PartialEq, Clone)]
 pub struct StructType {
     pub members: Vec<(String, Type)>,
@@ -108,6 +117,7 @@ impl StructType {
     }
 }
 
+/// Root semantic type tree used by generators.
 #[derive(PartialEq, Clone)]
 pub enum Type {
     Null,                     // null

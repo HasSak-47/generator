@@ -5,6 +5,7 @@ use crate::{
 
 use clap::{Parser, ValueEnum};
 
+/// Determine how literal unions should be represented in Pydantic models.
 #[derive(ValueEnum, Debug, Default, Clone, PartialEq)]
 #[value(rename_all = "snake_case")]
 pub enum EnumHandling {
@@ -15,8 +16,10 @@ pub enum EnumHandling {
 }
 
 // NOTE: fast api handles datetime convertion so you can just kinda ignore it
+/// CLI surface for the FastAPI generator.
 #[derive(Parser, Clone)]
 pub struct FastApi {
+    /// Module path or symbol used in the generated decorators, e.g. `app`.
     pub app_name: String,
     #[arg(short, long, value_enum, default_value_t = EnumHandling::ToString)]
     pub enum_handling: EnumHandling,

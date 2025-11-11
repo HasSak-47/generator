@@ -1,3 +1,5 @@
+//! Command-line entry point that wires CLI flags to the concrete code generators.
+
 mod builder;
 mod generators;
 mod parser;
@@ -13,17 +15,21 @@ use clap::{Parser, Subcommand};
 
 use crate::generators::{python::FastApi, ts::TS};
 
+/// CLI surface exposed by `cargo run -- ...`.
 #[derive(Parser)]
 struct Cli {
     #[arg(default_value_os_t = {PathBuf::from("./definitions.defs")})]
     pub definitions: PathBuf,
 
+    /// Split output into `<prefix>models` and `<prefix>endpoints` files instead of a single bundle.
     #[arg(short = 'S', long, default_value_t = false)]
     pub split: bool,
 
+    /// Prefix added to every generated filename (helps when mixing variants in the same folder).
     #[arg(short = 'P', long)]
     pub prefix: Option<String>,
 
+    /// Destination directory for generated files.
     #[arg(short, long, default_value_os_t = {PathBuf::from("./src/generated")})]
     pub path: PathBuf,
 
@@ -31,6 +37,7 @@ struct Cli {
     pub generator: Generators,
 }
 
+/// Select which target backend should render the DSL.
 #[derive(Subcommand, Clone)]
 enum Generators {
     PythonFastApi(FastApi),
@@ -38,6 +45,7 @@ enum Generators {
 }
 
 fn main() -> Result<()> {
+    // Parse CLI args, load the DSL, and hand the parsed AST to the requested generator.
     let cli = Cli::parse();
     let prefix = cli.prefix.unwrap_or(String::new());
     let defs = Definitons::load_from_path(cli.definitions)?;
