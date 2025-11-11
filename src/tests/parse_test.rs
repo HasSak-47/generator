@@ -13,7 +13,7 @@ fn parse_test() -> Result<()> {
 
     let mut path = current_dir()?;
 
-    path.push("generated");
+    path.push("temp");
     path.push("generated");
     path.set_extension("ts");
 

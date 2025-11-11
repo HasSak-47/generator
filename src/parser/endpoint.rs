@@ -61,4 +61,8 @@ impl EndPoint {
             }
         }
     }
+
+    pub fn add_param_type(&mut self, name: String, ty: Type) {
+        self.params.push((name, ty));
+    }
 }

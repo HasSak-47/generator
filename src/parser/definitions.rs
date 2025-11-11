@@ -15,6 +15,7 @@ struct SplitType {
 /// Metadata for a single named type in the DSL.
 #[derive(Debug)]
 pub struct TypeInformation {
+    /// Name of the type
     pub name: String,
     pub ty: Type,
     conversion: Option<SplitType>,
@@ -46,6 +47,14 @@ impl TypeInformation {
         } else {
             &self.name
         }
+    }
+
+    pub fn new(name: String, ty: Type) -> Self {
+        return Self {
+            ty,
+            name,
+            conversion: None,
+        };
     }
 }
 
@@ -345,6 +354,15 @@ impl Definitons {
         code.add_child(self.render_endpoint_definitions(generator));
 
         return code;
+    }
+
+    pub fn get_named_type<S: AsRef<str>>(&self, name: S) -> Option<&TypeInformation> {
+        let name = name.as_ref();
+        return self
+            .types
+            .iter()
+            .find(|n| name == *n.0)
+            .and_then(|t| Some(t.1));
     }
 }
 

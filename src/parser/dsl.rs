@@ -200,9 +200,8 @@ pub fn get_definitions<P: AsRef<Path>>(p: P) -> Result<Definitons> {
                 let name = iter.next().unwrap().as_str().to_string();
 
                 while iter.peek().unwrap().as_rule() == Rule::member_field {
-                    end_point
-                        .params
-                        .push(handle_member_field(iter.next().unwrap())?);
+                    let (name, ty) = handle_member_field(iter.next().unwrap())?;
+                    end_point.add_param_type(name, ty);
                 }
 
                 match iter.next().unwrap().into_inner().next().unwrap().as_str() {

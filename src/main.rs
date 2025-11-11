@@ -6,14 +6,17 @@ mod parser;
 #[cfg(test)]
 mod tests;
 
-use crate::{builder::Code, parser::definitions::*};
+use crate::parser::definitions::*;
 
 use std::{fs::File, io::Write, path::PathBuf};
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
-use crate::generators::{python::FastApi, ts::TS};
+use crate::generators::{
+    //python::FastApi,
+    ts::TS,
+};
 
 /// CLI surface exposed by `cargo run -- ...`.
 #[derive(Parser)]
@@ -40,7 +43,7 @@ struct Cli {
 /// Select which target backend should render the DSL.
 #[derive(Subcommand, Clone)]
 enum Generators {
-    PythonFastApi(FastApi),
+    // PythonFastApi(FastApi),
     Typescript(TS),
 }
 
@@ -51,7 +54,7 @@ fn main() -> Result<()> {
     let defs = Definitons::load_from_path(cli.definitions)?;
     let (generator, extension): (Box<dyn Generator>, &str) = match cli.generator {
         Generators::Typescript(ts) => (Box::new(ts), "ts"),
-        Generators::PythonFastApi(fastapi) => (Box::new(fastapi), "py"),
+        // Generators::PythonFastApi(fastapi) => (Box::new(fastapi), "py"),
     };
 
     if cli.split {
