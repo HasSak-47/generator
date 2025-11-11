@@ -152,6 +152,7 @@ impl Definitons {
                         s.tys.push(self.convert_to_domain_type(ty));
                     }
                 }
+                s.kind = u.kind.clone();
                 Type::Union(s)
             }
 
@@ -192,6 +193,7 @@ impl Definitons {
                         s.tys.push(self.convert_to_wire_type(ty));
                     }
                 }
+                s.kind = u.kind.clone();
                 Type::Union(s)
             }
             Type::Named(name) => {

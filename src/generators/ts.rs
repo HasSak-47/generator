@@ -485,7 +485,7 @@ impl Generator for TS {
                         &return_type,
                     ));
                 }
-                func_body.add_line(format!("return j as {return_type}"));
+                func_body.add_line(format!("return into_domain_{name}(j);"));
             }
             Type::Primitive(p) => {
                 let expected_type = self.ts_signature_for_primitive(p);
@@ -500,11 +500,7 @@ impl Generator for TS {
                 ));
                 func_body.add_line("return j;".to_string());
             }
-            // TODO: add
-            Type::Array(_) => {
-                func_body.add_line(format!("return j as {};", return_type));
-            }
-            _ => func_body.add_line(format!("return j")),
+            ty => func_body.add_line(format!("return j as {}", self.ts_type_literal(defs, ty))),
         }
 
         code.add_line("}".to_string());
