@@ -82,10 +82,6 @@ impl TS {
         .to_string()
     }
 
-    fn get_struct_signature(&self, e: &StructType) -> String {
-        todo!()
-    }
-
     fn get_union_signature(&self, e: &UnionType) -> String {
         let mut poss = e.tys.iter();
         let mut s = format!("{}", poss.next().unwrap());
@@ -104,13 +100,18 @@ impl TS {
             Type::Array(a) => format!("{}[]", self.get_type_signature(defs, &a.ty)),
             Type::Into(i) => format!("{}", self.get_repr_signature(&i.into)),
             Type::Named(m) => format!("{m}",),
-            Type::Undetermined(u) => panic!("Undetermined: {u:?} reached a TS generator",),
             Type::Null => format!("null",),
             Type::Literal(l) => {
                 format!("{l}")
             }
-            #[allow(unreachable_patterns)]
             e => unimplemented!("{e:?}"),
+            Type::Union(u) => self.get_union_signature(u),
+
+            Type::Undetermined(u) => {
+                panic!("Undetermined: {u:?} reached a TS generator {defs:#?}",)
+            }
+            #[allow(unreachable_patterns)]
+            e => unimplemented!("not found signature of: {e:?}"),
         };
     }
 
@@ -240,30 +241,30 @@ impl Generator for TS {
         return code;
     }
 
-    fn generate_type(&self, name: &str, model: &Type, defs: &Definitons) -> Code {
+    fn generate_type_translation(&self, ty: &TypeInformation, defs: &Definitons) -> Code {
         todo!()
     }
 
-    // fn handle_model(&self, name: &str, model: &StructType, defs: &Definitons) -> Code {
-    //     return self._handle_model(name, model, defs, true);
-    // }
+    fn generate_type(&self, name: &str, ty: &Type, public: bool, defs: &Definitons) -> Code {
+        let mut code = Code::new_segment();
+        match ty {
+            Type::Struct(s) => {
+                code.add_line(format!(
+                    "{}type {name} = {{",
+                    if public { "export " } else { "" }
+                ));
+                let member_block = code.create_child_block();
+                for (name, ty) in &s.members {
+                    member_block
+                        .add_line(format!("{name}: {},", self.get_type_signature(defs, &ty)));
+                }
+                code.add_line("}".to_string());
+            }
 
-    // fn handle_enum(&self, name: &str, e: &Enum) -> Code {
-    //     match self.type_enum {
-    //         EnumHandling::ToEnum => {
-    //             return Code::new_segment();
-    //         }
-    //         EnumHandling::ToType => {
-    //             return Code::new_line(format!(
-    //                 "export type {name} = {}",
-    //                 self.generate_enum_algebra(e)
-    //             ));
-    //         }
-    //         EnumHandling::ToString | EnumHandling::ToAlgebraic => {
-    //             return Code::new_segment();
-    //         }
-    //     }
-    // }
+            _ => todo!(),
+        };
+        return code;
+    }
 
     fn generate_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> Code {
         let mut code = Code::new_segment();
@@ -389,7 +390,7 @@ impl Generator for TS {
             Type::Array(_) => {
                 func_body.add_line(format!("return j as {};", return_type));
             }
-            _ => todo!(),
+            _ => func_body.add_line(format!("return j")),
         }
 
         code.add_line("}".to_string());

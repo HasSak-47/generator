@@ -7,21 +7,9 @@ use std::{env::current_dir, fs::File, io::Write};
 #[test]
 fn parse_test() -> Result<()> {
     let defs = Definitons::get_definitions("./unit.gdsl")?;
-    let generator = Box::new(ts::TS::default());
+    let generator = ts::TS::default();
 
-    let mut code = Code::new_segment();
-
-    code.add_child(generator.generate_type_header(&defs));
-    code.add_child(generator.generate_endpoint_header(&defs));
-
-    for (name, ty) in &defs.types {
-        code.add_child(generator.generate_type(name.as_str(), ty.get_domain_type(), &defs));
-    }
-    for (name, endpoint) in &defs.end_points {
-        code.add_child(generator.generate_endpoint(name.as_str(), &endpoint, &defs));
-    }
-
-    let code = code.collapse_root("\t");
+    let code = defs.generate_united_code(&generator).collapse_root("\t");
 
     let mut path = current_dir()?;
 

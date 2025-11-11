@@ -58,57 +58,48 @@ impl Definitons {
         }
     }
 
-    fn check_type(ty: &Type, names: &Vec<String>) -> bool {
+    fn determine_type(ty: &mut Type, names: &Vec<String>) {
         match ty {
             Type::Struct(struct_) => {
-                for (_, ty) in &struct_.members {
-                    let found = Definitons::check_type(ty, names);
-                    if !found {
-                        let ty_name = ty.to_string();
-                        panic!("could not expand type {ty_name}");
-                    }
+                for (_, ty) in &mut struct_.members {
+                    Definitons::determine_type(ty, names);
                 }
+            }
+            Type::Array(arr) => {
+                Definitons::determine_type(&mut arr.ty, names);
+            }
+            Type::Optional(opt) => {
+                Definitons::determine_type(&mut opt.ty, names);
             }
             Type::Union(union) => {
-                for ty in &union.tys {
-                    let found = Definitons::check_type(ty, names);
-                    if !found {
-                        let ty_name = ty.to_string();
-                        panic!("could not expand type {ty_name}");
-                    }
+                for ty in &mut union.tys {
+                    Definitons::determine_type(ty, names);
                 }
             }
-            Type::Named(name) => return names.iter().find(|n| **n == *name).is_some(),
+            Type::Undetermined(name) => {
+                let found_name = names.iter().find(|n| **n == *name);
+                if found_name.is_none() {
+                    panic!("failed to determine {name}");
+                }
+                *ty = Type::Named(name.clone());
+            }
             _ => {}
         }
-
-        return true;
     }
 
     /// Will check if all names are known, will fail fast on unknown names.
     fn check_if_defined(&mut self) {
         let type_names: Vec<String> = self.types.keys().map(|k| k.clone()).collect();
 
-        for (_, ty) in &self.types {
-            let found = Definitons::check_type(&ty.ty, &type_names);
-            if !found {
-                let ty_name = ty.ty.to_string();
-                panic!("could not expand type {ty_name}");
-            }
+        for (_, ty) in &mut self.types {
+            Definitons::determine_type(&mut ty.ty, &type_names);
         }
 
-        for (_, endpoint) in self.end_points.iter_mut() {
+        for (_, endpoint) in &mut self.end_points {
             for (_, ty) in endpoint.params.iter_mut() {
-                let param_name = ty.to_string();
-                let found = Definitons::check_type(ty, &type_names);
-                if !found {
-                    panic!("could not expand type {param_name}: {self:?}");
-                }
+                Definitons::determine_type(ty, &type_names);
             }
-            let found = Definitons::check_type(&endpoint.return_type, &type_names);
-            if !found {
-                panic!("could not expand type: {self:?}");
-            }
+            Definitons::determine_type(&mut endpoint.return_type, &type_names);
         }
     }
 
@@ -122,15 +113,23 @@ impl Definitons {
             Type::Struct(st) => {
                 let mut s = StructType::new();
                 for (name, ty) in &st.members {
-                    s.members
-                        .push((name.clone(), self.generate_domain_type(ty)));
+                    if !ty.contains_into(self) {
+                        s.members.push((name.clone(), ty.clone()));
+                    } else {
+                        s.members
+                            .push((name.clone(), self.generate_domain_type(ty)));
+                    }
                 }
                 Type::Struct(s)
             }
             Type::Union(u) => {
                 let mut s = UnionType::new(vec![]);
                 for ty in &u.tys {
-                    s.tys.push(self.generate_domain_type(ty));
+                    if !ty.contains_into(self) {
+                        s.tys.push(ty.clone());
+                    } else {
+                        s.tys.push(self.generate_domain_type(ty));
+                    }
                 }
                 Type::Union(s)
             }
@@ -144,7 +143,7 @@ impl Definitons {
     }
 
     pub fn generate_wire_type(&self, ty: &Type) -> Type {
-        assert!(ty.contains_into(self));
+        assert!(ty.contains_into(self), "{ty:?} doesn't contains into");
 
         return match ty {
             Type::Into(i) => (*i.from).clone(),
@@ -153,14 +152,22 @@ impl Definitons {
             Type::Struct(st) => {
                 let mut s = StructType::new();
                 for (name, ty) in &st.members {
-                    s.members.push((name.clone(), self.generate_wire_type(ty)));
+                    if !ty.contains_into(self) {
+                        s.members.push((name.clone(), ty.clone()));
+                    } else {
+                        s.members.push((name.clone(), self.generate_wire_type(ty)));
+                    }
                 }
                 Type::Struct(s)
             }
             Type::Union(u) => {
                 let mut s = UnionType::new(vec![]);
                 for ty in &u.tys {
-                    s.tys.push(self.generate_wire_type(ty));
+                    if !ty.contains_into(self) {
+                        s.tys.push(ty.clone());
+                    } else {
+                        s.tys.push(self.generate_wire_type(ty));
+                    }
                 }
                 Type::Union(s)
             }
@@ -215,6 +222,82 @@ impl Definitons {
 
         return Ok(defs);
     }
+
+    pub fn generate_type_definitons<G: Generator + ?Sized>(&self, generator: &G) -> Code {
+        let mut code = Code::new_segment();
+        for (name, ty) in &self.types {
+            let ty = ty.get_domain_type();
+            code.add_child(generator.generate_type(name, ty, true, self));
+        }
+        return code;
+    }
+
+    pub fn generate_wire_type_definitons<G: Generator + ?Sized>(&self, generator: &G) -> Code {
+        let mut code = Code::new_segment();
+        for (name, ty) in &self.types {
+            if ty.conversion.is_none() {
+                continue;
+            }
+            let ty = ty.get_wire_type();
+            code.add_child(generator.generate_type(format!("_{name}").as_str(), ty, false, self));
+        }
+
+        return code;
+    }
+
+    pub fn generate_translation_code<G: Generator + ?Sized>(&self, generator: &G) -> Code {
+        let mut code = Code::new_segment();
+        for (_, ty) in &self.types {
+            if ty.conversion.is_none() {
+                continue;
+            }
+            code.add_child(generator.generate_type_translation(ty, self));
+        }
+
+        return code;
+    }
+
+    pub fn generate_endpoint_definitons<G: Generator + ?Sized>(&self, generator: &G) -> Code {
+        let mut code = Code::new_segment();
+
+        for (name, endpoint) in &self.end_points {
+            code.add_child(generator.generate_endpoint(name, endpoint, self));
+        }
+
+        return code;
+    }
+
+    pub fn generate_type_code<G: Generator + ?Sized>(&self, generator: &G) -> Code {
+        let mut code = Code::new_segment();
+        code.add_child(generator.generate_type_header(self));
+        code.add_child(self.generate_type_definitons(generator));
+
+        return code;
+    }
+
+    pub fn generate_endpoint_code<G: Generator + ?Sized>(&self, generator: &G) -> Code {
+        let mut code = Code::new_segment();
+        code.add_child(generator.generate_endpoint_header(self));
+        code.add_child(self.generate_wire_type_definitons(generator));
+        code.add_child(self.generate_translation_code(generator));
+        code.add_child(self.generate_endpoint_definitons(generator));
+
+        return code;
+    }
+
+    pub fn generate_united_code<G: Generator + ?Sized>(&self, generator: &G) -> Code {
+        let mut code = Code::new_segment();
+        code.add_child(generator.generate_endpoint_header(self));
+        code.add_child(generator.generate_type_header(self));
+
+        code.add_child(self.generate_type_definitons(generator));
+
+        code.add_child(self.generate_wire_type_definitons(generator));
+        code.add_child(self.generate_translation_code(generator));
+        code.add_child(self.generate_endpoint_definitons(generator));
+
+        return code;
+    }
 }
 
 pub trait Generator {
@@ -225,7 +308,7 @@ pub trait Generator {
         return Code::new_segment();
     }
 
-    fn generate_type(&self, name: &str, model: &Type, defs: &Definitons) -> Code;
-    fn generate_type_translations(&self, name: &str, model: &Type, defs: &Definitons) -> Code;
+    fn generate_type(&self, name: &str, model: &Type, public: bool, defs: &Definitons) -> Code;
+    fn generate_type_translation(&self, model: &TypeInformation, defs: &Definitons) -> Code;
     fn generate_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> Code;
 }

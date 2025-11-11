@@ -45,7 +45,9 @@ impl EndPoint {
         let name = name.as_ref();
         let (name, ty) = self.params.iter().find(|p| p.0 == name)?;
         match &ty {
-            Type::Union(_) | Type::Struct(_) => return Some(EndPointParamKind::Body),
+            Type::Named(_) | Type::Struct(_) => {
+                return Some(EndPointParamKind::Body);
+            }
             _ => {
                 if self.url.contains(format!("{{{name}}}").as_str()) {
                     return Some(EndPointParamKind::Path);

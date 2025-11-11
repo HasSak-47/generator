@@ -75,7 +75,7 @@ impl FastApi {
 }
 
 impl Generator for FastApi {
-    fn generate_type(&self, name: &str, model: &Type, defs: &Definitons) -> Code {
+    fn generate_type(&self, name: &str, ty: &Type, _public: bool, defs: &Definitons) -> Code {
         todo!()
     }
 
@@ -121,5 +121,9 @@ impl Generator for FastApi {
         func_body.add_line(call);
 
         return code;
+    }
+
+    fn generate_type_translation(&self, model: &TypeInformation, defs: &Definitons) -> Code {
+        todo!()
     }
 }

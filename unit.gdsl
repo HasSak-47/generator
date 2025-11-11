@@ -1,23 +1,20 @@
-type Used = {
-    id: uint,
-    by: string,
-}
-
-type Down = {
-    by: string,
-}
-
-type State = {
-    state: {Used | Down},
-    id: uint,
+type Foo = {
+    foo: uint,
+    bar: string?,
+    baz: string as datetime[]
 }
 
 type Bar = {
-    name: string,
-    tags: string[]?,
+    foo: uint,
+    bar: string?,
+    baz: int[]
 }
 
-put_example(name: string, date: string as datetime) @get "/message/"
-get_bar_state(name: string) @get "/bar/{name}/state" -> State
-get_bar_id(bar: Bar) @get "/bar/id" -> uint
-get_states_from_bar(bar: Bar) @get "/bar/from/baz" -> Bar[]
+type Baz = {
+    foo: {Foo | Bar},
+    bar: string as datetime,
+}
+
+request_foo(str: string, date: string as datetime, foo: Foo) @put "/request_foo/" -> Foo[]
+request_bar(str: string, date: string as datetime, bar: Bar) @post "/request_bar/" -> Bar[]
+request_baz(str: string, date: string as datetime, baz: Baz) @get "/request_baz/" -> Baz[]
