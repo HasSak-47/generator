@@ -7,15 +7,14 @@ use crate::{
 
 use clap::{Parser, ValueEnum};
 
-/// Controls how literal unions (legacy “enums”) are translated in TypeScript output.
+/// Controls how single typed literal unions are translated in TypeScript output.
 #[derive(ValueEnum, Debug, Default, Clone, PartialEq)]
 #[value(rename_all = "snake_case")]
 pub enum EnumHandling {
     ToEnum,
-    ToString,
-    ToAlgebraic,
-    #[default]
     ToType,
+    #[default]
+    ToAlgebraic,
 }
 
 impl Display for EnumHandling {
@@ -25,7 +24,6 @@ impl Display for EnumHandling {
             "{}",
             match self {
                 Self::ToEnum => "to_enum",
-                Self::ToString => "to_string",
                 Self::ToAlgebraic => "to_algebraic",
                 Self::ToType => "to_type",
             }
@@ -64,7 +62,7 @@ pub struct TS {
     #[arg(short, long, default_value_t = ErrorHandling::Raise)]
     pub error_handling: ErrorHandling,
 
-    /// Legacy flag name that toggles how literal unions are emitted.
+    /// Toggles how literal unions are emitted.
     #[arg(short, long, default_value_t = EnumHandling::ToType)]
     pub type_enum: EnumHandling,
 }
@@ -98,12 +96,13 @@ impl TS {
             UnionKind::Untagged => s,
             UnionKind::External => {
                 let mut poss = e.tys.iter();
-                let mut tag = format!("\"{}\"", poss.next().unwrap());
+                let next = poss.next().unwrap();
+                let mut s = format!("{{tag: \"{}\", data: {}}}", next, next);
                 for param in poss {
-                    tag += format!(" | \"{param}\"").as_str();
+                    s += format!(" | {{tag: \"{}\", data: {}}}", param, param).as_str();
                 }
 
-                return format!("{{tag: {tag}, data: {s}}}");
+                return s;
             }
             UnionKind::Interal => todo!(),
         };
@@ -253,15 +252,18 @@ impl TS {
         return code;
     }
 
-    fn generate_struct_translation<F: Fn(String, &Type, &Definitons) -> String>(
+    fn generate_struct_translation<F>(
         &self,
-        struct_name: &String,
+        return_name: &String,
         s: &StructType,
         defs: &Definitons,
         translator: F,
-    ) -> Code {
+    ) -> Code
+    where
+        F: Fn(String, &Type, &Definitons) -> String,
+    {
         let mut code = Code::new_segment();
-        code.add_line("let wire_m = {".to_string());
+        code.add_line("let _m = {".to_string());
         let body = code.create_child_block();
         for (name, ty) in &s.members {
             if ty.contains_into(defs) {
@@ -274,19 +276,42 @@ impl TS {
             }
         }
 
-        code.add_line(format!("}}"));
-        code.add_line("return wire_m".to_string());
+        code.add_line(format!("}} as {return_name}"));
+        code.add_line("return _m".to_string());
         return code;
     }
 
     fn generate_union_translation<F: Fn(String, &Type, &Definitons) -> String>(
         &self,
-        union_name: &String,
+        return_type: &String,
         u: &UnionType,
         defs: &Definitons,
         translator: F,
     ) -> Code {
         let mut code = Code::new_segment();
+        match u.kind {
+            UnionKind::Interal => {
+                todo!()
+            }
+            UnionKind::External => {
+                for ty in &u.tys {
+                    code.add_line(format!("if(m.tag === '{ty}')"));
+                    let ret_code = code.create_child_block();
+                    if !ty.contains_into(defs) {
+                        ret_code.add_line(format!("return {{tag:'{ty}',data:m.data}}"));
+                    } else {
+                        ret_code
+                            .add_line(format!("return {{tag:'{ty}', data:{}}}", translator("m.data".to_string(), ty, defs)));
+                    }
+                    code.add_line("else".to_string());
+                }
+                    code.create_child_block()
+                        .add_line("throw Error('???')".to_string());
+            }
+            UnionKind::Untagged => {
+                todo!()
+            }
+        }
         return code;
     }
 }
@@ -328,7 +353,7 @@ impl Generator for TS {
         wire_code.add_line(format!("function into_wire_{name}(m: {name}){{"));
         match &ty.ty {
             Type::Struct(s) => wire_code.add_child(self.generate_struct_translation(
-                name,
+                ty.get_wire_name(),
                 &s,
                 defs,
                 |name, ty, defs| self.build_into_wire_expression(name, ty, defs),

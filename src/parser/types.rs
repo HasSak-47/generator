@@ -111,10 +111,6 @@ impl StructType {
             members: Vec::new(),
         };
     }
-
-    pub fn new_with(members: Vec<(String, Type)>) -> Self {
-        return Self { members };
-    }
 }
 
 /// Root semantic type tree used by generators.
@@ -174,6 +170,7 @@ impl Type {
         Self::Into(IntoType::new(from, to))
     }
 
+    #[allow(dead_code)]
     pub fn get_struct(&self) -> &StructType {
         match self {
             Self::Struct(s) => return s,
@@ -206,30 +203,6 @@ impl Type {
             Self::Named(name) => defs.types[name].ty.contains_into(defs),
             _ => false,
         }
-    }
-
-    /// Replace `Undetermined` placeholders with concrete enum/model types based on known names.
-    fn determine<F: Fn(String) -> Type>(&mut self, models: &Vec<String>, builder: F) -> Result<()> {
-        match self {
-            Self::Array(arr) => {
-                return arr.ty.determine(models, builder);
-            }
-            Self::Optional(opt) => {
-                return opt.ty.determine(models, builder);
-            }
-            Self::Undetermined(name) => {
-                if models.contains(&name) {
-                    *self = builder(name.clone());
-                } else {
-                    return Err(anyhow!(
-                        "unknown Struct/Enum found: {name} is not in {models:?}"
-                    ));
-                }
-            }
-            _ => {}
-        }
-
-        return Ok(());
     }
 }
 
