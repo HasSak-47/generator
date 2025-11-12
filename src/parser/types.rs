@@ -83,17 +83,45 @@ pub enum UnionKind {
     External,
 }
 
+#[derive(PartialEq, Clone)]
+pub struct UnionMember {
+    pub tag: Option<String>,
+    pub ty: Type,
+}
+
+impl UnionMember {
+    pub fn untagged(ty: Type) -> Self {
+        return Self { ty, tag: None };
+    }
+
+    pub fn tagged(tag: String, ty: Type) -> Self {
+        return Self { ty, tag: Some(tag) };
+    }
+}
+
 /// Wrapper describing `T1 | T2 | ... | Tn` and how it is tagged.
 #[derive(PartialEq, Clone)]
 pub struct UnionType {
-    pub tys: Vec<Type>,
+    pub members: Vec<UnionMember>,
     pub kind: UnionKind,
 }
 
 impl UnionType {
-    pub fn new(tys: Vec<Type>) -> Self {
+    pub fn add_member(&mut self, m: UnionMember) {
+        self.members.push(m);
+    }
+
+    pub fn add_untagged_member(&mut self, ty: Type){
+        self.add_member(UnionMember::untagged(ty))
+    }
+
+    pub fn add_tagged_member(&mut self, tag: String, ty: Type){
+        self.add_member(UnionMember::tagged(tag, ty))
+    }
+
+    pub fn new() -> Self {
         return Self {
-            tys,
+            members: Vec::new(),
             kind: UnionKind::Untagged,
         };
     }
@@ -193,8 +221,8 @@ impl Type {
                 false
             }
             Self::Union(u) => {
-                for ty in &u.tys {
-                    if ty.contains_into(defs) {
+                for ty in &u.members {
+                    if ty.ty.contains_into(defs) {
                         return true;
                     }
                 }
@@ -271,8 +299,9 @@ impl Display for LiteralType {
 impl Display for UnionType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}: ", self.kind)?;
-        for ty in &self.tys {
-            write!(f, "| {ty} ")?;
+        for ty in &self.members {
+            // TODO: also print the tags :p
+            write!(f, "| {} ", ty.ty)?;
         }
 
         return Ok(());
@@ -346,8 +375,9 @@ impl Debug for LiteralType {
 impl Debug for UnionType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}: ", self.kind)?;
-        for ty in &self.tys {
-            write!(f, "| {ty}")?;
+        for ty in &self.members {
+            // TODO: also print the tags :p
+            write!(f, "| {}", ty.ty)?;
         }
 
         return Ok(());

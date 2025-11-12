@@ -85,21 +85,26 @@ impl TS {
         .to_string()
     }
 
-    fn ts_union_literal(&self, e: &UnionType) -> String {
-        let mut poss = e.tys.iter();
-        let mut s = format!("{}", poss.next().unwrap());
-        for param in poss {
-            s += format!(" | {param}").as_str();
+    fn ts_union_literal(&self, e: &UnionType, defs: &Definitons) -> String {
+        let mut poss = e.members.iter();
+        let mut s = format!("{}",  self.ts_type_literal(defs, &poss.next().unwrap().ty));
+        for UnionMember{ty, ..}in poss {
+            s += format!(" | {}", self.ts_type_literal(defs, ty)).as_str();
         }
 
         return match e.kind {
             UnionKind::Untagged => s,
             UnionKind::External => {
-                let mut poss = e.tys.iter();
+                let mut poss = e.members.iter();
                 let next = poss.next().unwrap();
-                let mut s = format!("{{tag: \"{}\", data: {}}}", next, next);
-                for param in poss {
-                    s += format!(" | {{tag: \"{}\", data: {}}}", param, param).as_str();
+                let fmtter = |u: &UnionMember| {
+                    let tag = u.tag.as_ref().unwrap();
+                    let ty = &u.ty;
+                    return format!("{{ tag '{tag}', data: {ty}}}");
+                };
+                let mut s = fmtter(next);
+                for member in poss {
+                    s += format!(" | {}", fmtter(member)).as_str();
                 }
 
                 return s;
@@ -121,7 +126,7 @@ impl TS {
             Type::Literal(l) => {
                 format!("{l}")
             }
-            Type::Union(u) => self.ts_union_literal(u),
+            Type::Union(u) => self.ts_union_literal(u, defs),
             Type::Undetermined(u) => {
                 panic!("Undetermined: {u:?} reached a TS generator {defs:#?}",)
             }
@@ -294,14 +299,15 @@ impl TS {
                 todo!()
             }
             UnionKind::External => {
-                for ty in &u.tys {
-                    code.add_line(format!("if(m.tag === '{ty}')"));
+                for UnionMember{ty, tag} in &u.members {
+                    let tag = tag.as_ref().unwrap();
+                    code.add_line(format!("if(m.tag === '{tag}')"));
                     let ret_code = code.create_child_block();
                     if !ty.contains_into(defs) {
-                        ret_code.add_line(format!("return {{tag:'{ty}',data:m.data}}"));
+                        ret_code.add_line(format!("return {{tag:'{tag}',data:m.data}}"));
                     } else {
                         ret_code
-                            .add_line(format!("return {{tag:'{ty}', data:{}}}", translator("m.data".to_string(), ty, defs)));
+                            .add_line(format!("return {{tag:'{tag}', data:{}}}", translator("m.data".to_string(), ty, defs)));
                     }
                     code.add_line("else".to_string());
                 }
@@ -387,8 +393,8 @@ impl Generator for TS {
             }
 
             Type::Union(u) => {
-                assert_ne!(u.tys.len(), 0);
-                let union_str = self.ts_union_literal(u);
+                assert_ne!(u.members.len(), 0);
+                let union_str = self.ts_union_literal(u, defs);
 
                 code.add_line(format!(
                     "{}type {name} = {union_str}",

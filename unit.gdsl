@@ -10,7 +10,7 @@ type Bar = {
     baz: int[]
 }
 
-type FooBar = outer {Foo | Bar}
+type FooBar = outer{Foo | Bar}
 
 type Baz = {
     foo: FooBar,

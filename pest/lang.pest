@@ -2,13 +2,11 @@ definitions = {
     SOI ~ (struct_definition | ty_definition | end_point)+ ~ EOI
 }
 
-
 struct_definition = {
     "type" ~ name ~ struct_extension? ~ "=" ~ struct_type
 }
 
 ty_definition = { "type" ~ name ~ "=" ~ ty }
-
 
 struct_extension = @{ ":" ~ name }
 
@@ -34,7 +32,11 @@ map_type   = ${ "<" ~ " "* ~ primitive_type ~ " "* ~ "," ~ " "* ~ ty ~ " "* ~ ">
 named_type = ${ name }
 
 value_type  = ${ value }
-union_type  =  { union_tag? ~ "{" ~ ty ~ " "* ~ "|" ~ " "* ~ ty ~ "}" }
+union_type  = @{ untagged_union | tagged_union }
+untagged_union = @{"{" ~ ty ~ " "* ~ "|" ~ " "* ~ ty ~ "}"}
+tagged_union   = @{ union_tag ~ "{" ~ union_member ~ " "* ~ "|" ~ " "* ~ union_member ~ "}" }
+
+union_member= ${ (name ~ ":")? ~ ty }
 union_tag   =  { "inner" | "outer" | "untagged" }
 weird_mark  = ${ (option_mark | array_mark) }
 option_mark = @{ "?" }

@@ -75,7 +75,7 @@ impl Definitons {
 
     /// Ensure untagged unions only contain primitives or other unions (structs would be ambiguous).
     pub fn validate_untagged_union(&self, u: &UnionType) {
-        for ty in &u.tys {
+        for UnionMember{ty, ..}in &u.members {
             match ty {
                 Type::Struct(_) => {
                     panic!("untagged union that contains structs is not valid yet!")
@@ -105,7 +105,7 @@ impl Definitons {
                 Definitons::resolve_type_references(&mut opt.ty, names);
             }
             Type::Union(union) => {
-                for ty in &mut union.tys {
+                for UnionMember{ty,..} in &mut union.members {
                     Definitons::resolve_type_references(ty, names);
                 }
             }
@@ -157,12 +157,15 @@ impl Definitons {
                 Type::Struct(s)
             }
             Type::Union(u) => {
-                let mut s = UnionType::new(vec![]);
-                for ty in &u.tys {
-                    if !ty.contains_into(self) {
-                        s.tys.push(ty.clone());
+                let mut s = UnionType::new();
+                for member in &u.members {
+                    if !member.ty.contains_into(self) {
+                        s.add_member(member.clone());
                     } else {
-                        s.tys.push(self.convert_to_domain_type(ty));
+                        s.add_member(UnionMember {
+                            tag: member.tag.clone(),
+                            ty: self.convert_to_domain_type(&member.ty)
+                        });
                     }
                 }
                 s.kind = u.kind.clone();
@@ -198,12 +201,15 @@ impl Definitons {
                 Type::Struct(s)
             }
             Type::Union(u) => {
-                let mut s = UnionType::new(vec![]);
-                for ty in &u.tys {
-                    if !ty.contains_into(self) {
-                        s.tys.push(ty.clone());
+                let mut s = UnionType::new();
+                for member in &u.members {
+                    if !member.ty.contains_into(self) {
+                        s.add_member(member.clone());
                     } else {
-                        s.tys.push(self.convert_to_wire_type(ty));
+                        s.add_member(UnionMember {
+                            tag: member.tag.clone(),
+                            ty: self.convert_to_domain_type(&member.ty)
+                        });
                     }
                 }
                 s.kind = u.kind.clone();
