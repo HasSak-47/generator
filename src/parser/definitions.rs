@@ -73,6 +73,23 @@ impl Definitons {
         }
     }
 
+    pub fn populate_union_tags(&mut self){
+        for ty in &mut self.types{
+            if let Type::Union(u) = &mut ty.1.ty{
+                if u.kind == UnionKind::Untagged{
+                    continue;
+                }
+
+                for mem in &mut u.members{
+                    if mem.tag.is_none() {
+                        mem.tag = Some(mem.ty.to_string())
+                    }
+                }
+
+            }
+        }
+    }
+
     /// Ensure untagged unions only contain primitives or other unions (structs would be ambiguous).
     pub fn validate_untagged_union(&self, u: &UnionType) {
         for UnionMember{ty, ..}in &u.members {
@@ -245,6 +262,7 @@ impl Definitons {
     pub fn load_from_path<P: AsRef<Path>>(p: P) -> Result<Self> {
         let mut defs = super::dsl::get_definitions(p)?;
         defs.validate_type_references();
+        defs.populate_union_tags();
 
         // I hate the borrow checker sometimes
         let mut new_types = HashMap::new();
