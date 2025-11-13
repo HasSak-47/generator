@@ -7,7 +7,7 @@ use std::{env::current_dir, fs::File, io::Write};
 #[test]
 fn parse_test() -> Result<()> {
     let defs = Definitons::load_from_path("./unit.gdsl")?;
-    let generator = ts::TS::default();
+    let generator = python::FastApi::default();
 
     let code = defs.build_combined_module(&generator).collapse_root("\t");
 
@@ -15,7 +15,7 @@ fn parse_test() -> Result<()> {
 
     path.push("temp");
     path.push("generated");
-    path.set_extension("ts");
+    path.set_extension("py");
 
     let mut file = File::create(path)?;
     file.write_all(code.as_bytes())?;
