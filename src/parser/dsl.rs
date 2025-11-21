@@ -222,6 +222,7 @@ pub fn add_definitions<P: AsRef<Path>>(defs: &mut Definitons, path: P) -> Result
                 defs.register_type(builder);
             }
             Rule::end_point => {
+                let (line, col) = inner.line_col();
                 let mut iter = inner.into_inner().peekable();
                 let mut end_point = EndPoint::default();
                 let name = iter.next().unwrap().as_str().to_string();
@@ -249,7 +250,11 @@ pub fn add_definitions<P: AsRef<Path>>(defs: &mut Definitons, path: P) -> Result
                 if let Some(o) = iter.next() {
                     end_point.return_type = handle_type(o)?;
                 }
-                defs.end_points.insert(name, end_point);
+                let mut builder = EndPointInformationBuilder::new_named(name, end_point);
+                builder.set_col(col);
+                builder.set_line(line);
+                builder.set_path(&path);
+                defs.register_endpoint(builder);
             }
             Rule::COMMENT | Rule::EOI => {}
             r => unreachable!("how did you got here {r:?}??"),

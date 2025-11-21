@@ -476,7 +476,7 @@ impl Generator for TS {
             fetch_body.add_line("body: JSON.stringify({".to_string());
             let body_code = fetch_body.create_child_block();
 
-            for (name, _) in &endpoint.params {
+            for (name, ty) in &endpoint.params {
                 if let EndPointParamKind::Body = endpoint.get_param_type(&name).unwrap() {
                     body_code.add_line(format!("{name}: {name}"));
                 }

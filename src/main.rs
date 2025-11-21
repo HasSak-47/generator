@@ -20,9 +20,13 @@ use crate::generators::{python::FastApi, ts::TS};
 struct Cli {
     pub definitions: Vec<PathBuf>,
 
-    /// Split output into `<prefix>models` and `<prefix>endpoints` files instead of a single bundle.
+    /// Split output into model and endpoint files instead of a single bundle
     #[arg(short = 'S', long, default_value_t = false)]
     pub split: bool,
+
+    /// Unite all the models and enpoints into a single entity or keep them separated
+    #[arg(default_value_t = false)]
+    pub unified: bool,
 
     /// Prefix added to every generated filename (helps when mixing variants in the same folder).
     #[arg(long)]

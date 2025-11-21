@@ -111,11 +111,75 @@ impl TypeInformation {
     }
 }
 
+pub struct EndPointInformationBuilder {
+    name: Option<String>,
+    endpoint: EndPoint,
+    path: Option<PathBuf>,
+    line: Option<usize>,
+    col: Option<usize>,
+}
+
+impl EndPointInformationBuilder {
+    pub fn new(endpoint: EndPoint) -> Self {
+        return Self {
+            name: None,
+            endpoint,
+            path: None,
+            line: None,
+            col: None,
+        };
+    }
+    pub fn new_named(name: String, endpoint: EndPoint) -> Self {
+        return Self {
+            name: Some(name),
+            endpoint,
+            path: None,
+            line: None,
+            col: None,
+        };
+    }
+
+    pub fn build_type(self) -> EndPointInformation {
+        return EndPointInformation {
+            name: self.name,
+            endpoint: self.endpoint,
+            path: self.path.unwrap(),
+            line: self.line.unwrap(),
+            col: self.col.unwrap(),
+        };
+    }
+
+    pub fn set_path<P: AsRef<Path>>(&mut self, p: P) {
+        self.path = Some(p.as_ref().to_path_buf());
+    }
+
+    pub fn set_col(&mut self, col: usize) {
+        self.col = Some(col);
+    }
+
+    pub fn set_line(&mut self, line: usize) {
+        self.line = Some(line);
+    }
+
+    pub fn set_name(&mut self, name: String) {
+        self.name = Some(name);
+    }
+}
+
+#[derive(Debug)]
+pub struct EndPointInformation {
+    pub name: Option<String>,
+    pub endpoint: EndPoint,
+    pub path: PathBuf,
+    pub line: usize,
+    pub col: usize,
+}
+
 /// Aggregates all parsed type and endpoint declarations.
 #[derive(Debug)]
 pub struct Definitons {
-    pub named_types: HashMap<String, TypeInformation>,
-    pub end_points: HashMap<String, EndPoint>,
+    named_types: HashMap<String, TypeInformation>,
+    end_points: HashMap<String, EndPointInformation>,
 }
 
 impl Definitons {
@@ -198,10 +262,10 @@ impl Definitons {
         }
 
         for (_, endpoint) in &mut self.end_points {
-            for (_, ty) in endpoint.params.iter_mut() {
+            for (_, ty) in endpoint.endpoint.params.iter_mut() {
                 Definitons::resolve_type_references(ty, &type_names);
             }
-            Definitons::resolve_type_references(&mut endpoint.return_type, &type_names);
+            Definitons::resolve_type_references(&mut endpoint.endpoint.return_type, &type_names);
         }
     }
 
@@ -296,6 +360,12 @@ impl Definitons {
                 unreachable!()
             }
         };
+    }
+
+    /// Insert a parsed `endpoint` declaration into the definitions map.
+    pub fn register_endpoint(&mut self, builder: EndPointInformationBuilder) {
+        self.end_points
+            .insert(builder.name.as_ref().unwrap().clone(), builder.build_type());
     }
 
     /// Insert a parsed `type` declaration into the definitions map.
@@ -393,14 +463,14 @@ impl Definitons {
         let mut code = Code::new_segment();
 
         for (name, endpoint) in &self.end_points {
-            code.add_child(generator.generate_endpoint(name, endpoint, self));
+            code.add_child(generator.generate_endpoint(name, &endpoint.endpoint, self));
         }
 
         return code;
     }
 
-    /// Build a standalone chunk of code that only contains type declarations.
-    pub fn build_type_module<G: Generator + ?Sized>(&self, generator: &G) -> Code {
+    /// Build a standalone chunk of code that has all the type declarations.
+    pub fn build_unified_type_module<G: Generator + ?Sized>(&self, generator: &G) -> Code {
         let mut code = Code::new_segment();
         code.add_child(generator.generate_type_header(self));
         code.add_child(self.render_domain_type_definitions(generator));
@@ -408,8 +478,8 @@ impl Definitons {
         return code;
     }
 
-    /// Build the endpoint-only output (wire structs + translations + endpoints).
-    pub fn build_endpoint_module<G: Generator + ?Sized>(&self, generator: &G) -> Code {
+    /// Build a standalone chunk of code thaat has all the endpoint-only output (wire structs + translations + endpoints).
+    pub fn build_unified_endpoint_module<G: Generator + ?Sized>(&self, generator: &G) -> Code {
         let mut code = Code::new_segment();
         code.add_child(generator.generate_endpoint_header(self));
         code.add_child(self.render_wire_type_definitions(generator));
@@ -419,8 +489,8 @@ impl Definitons {
         return code;
     }
 
-    /// Build a single combined output that contains both type and endpoint definitions.
-    pub fn build_combined_module<G: Generator + ?Sized>(&self, generator: &G) -> Code {
+    /// Build a single combined output that contains all type and all endpoint definitions.
+    pub fn build_unified_joint_module<G: Generator + ?Sized>(&self, generator: &G) -> Code {
         let mut code = Code::new_segment();
         code.add_child(generator.generate_endpoint_header(self));
         code.add_child(generator.generate_type_header(self));
@@ -432,6 +502,45 @@ impl Definitons {
         code.add_child(self.render_endpoint_definitions(generator));
 
         return code;
+    }
+
+    /// Build a HashMap in which the key is the file name and the value is a chunk of code
+    /// containing type definitions
+    pub fn build_decoupled_type_module<G>(&self, generator: &G) -> HashMap<String, Code>
+    where
+        G: Generator + ?Sized,
+    {
+        let mut modules: HashMap<_, Code> = HashMap::new();
+        for (name, info) in &self.named_types {
+            let path = info.path.file_name().unwrap().to_str().unwrap().to_string();
+            if let Some(code) = modules.get_mut(&path) {
+                code.add_child(generator.generate_type(&name, &info.ty, true, self));
+            } else {
+                let mut code = Code::new_segment();
+                code.add_child(generator.generate_type(&name, &info.ty, true, self));
+                modules.insert(path, code);
+            }
+        }
+
+        return modules;
+    }
+
+    /// Build a HashMap in which the key is the file name and the value is a chunk of code
+    /// containing endpoint definitions
+    pub fn build_decoupled_endpoint_module<G>(&self, generator: &G) -> HashMap<String, Code>
+    where
+        G: Generator + ?Sized,
+    {
+        todo!()
+    }
+
+    /// Build a HashMap in which the key is the file name and the value is a chunk of code
+    /// containing type and endpoint definitions
+    pub fn build_decoupled_joint_module<G>(&self, generator: &G) -> HashMap<String, Code>
+    where
+        G: Generator + ?Sized,
+    {
+        todo!()
     }
 
     pub fn get_named_type<S: AsRef<str>>(&self, name: S) -> Option<&TypeInformation> {
