@@ -15,7 +15,7 @@ end_point = {
 }
 
 operation_mark = ${ "@" ~ operation }
-operation      =  { "get" | "post" | "put" }
+operation      =  { "get" | "post" | "put" | "delete" }
 
 path = ${ "\"" ~ inner ~ "\"" }
 
@@ -33,8 +33,8 @@ named_type = ${ name }
 
 value_type     = ${ value }
 union_type     = @{ untagged_union | tagged_union }
-untagged_union = @{ "{" ~ WHITESPACE* ~ ty ~ WHITESPACE* ~ ("|" ~ WHITESPACE*~ ty~ WHITESPACE*)* ~ WHITESPACE*~ "}" }
-tagged_union   = @{ union_tag ~ WHITESPACE*~ "{" ~ WHITESPACE*~ union_member ~ WHITESPACE*~ ( "|" ~ WHITESPACE*~  union_member~ WHITESPACE*)* ~ WHITESPACE*~ "}" }
+untagged_union = @{ "{" ~ WHITESPACE* ~ ty ~ WHITESPACE* ~ ("|" ~ WHITESPACE* ~ ty ~ WHITESPACE*)* ~ WHITESPACE* ~ "}" }
+tagged_union   = @{ union_tag ~ WHITESPACE* ~ "{" ~ WHITESPACE* ~ union_member ~ WHITESPACE* ~ ("|" ~ WHITESPACE* ~ union_member ~ WHITESPACE*)* ~ WHITESPACE* ~ "}" }
 
 union_member = ${ (name ~ ":")? ~ ty }
 union_tag    =  { "inner" | "outer" | "untagged" }

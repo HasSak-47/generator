@@ -676,6 +676,8 @@ impl Definitons {
             map.get_mut(&path).unwrap().add_child(segment);
         }
 
+        let mut header = Code::new_segment();
+
         return map;
     }
 
