@@ -68,8 +68,12 @@ fn main() -> Result<()> {
     };
 
     if cli.split {
-        let endpoint_code = defs.build_endpoint_module(&*generator).collapse_root("\t");
-        let type_code = defs.build_type_module(&*generator).collapse_root("\t");
+        let endpoint_code = defs
+            .build_unified_endpoint_module(&*generator)
+            .collapse_root("\t");
+        let type_code = defs
+            .build_unified_type_module(&*generator)
+            .collapse_root("\t");
 
         let mut type_path = cli.path.clone();
         type_path.push(format!("{prefix}models"));
@@ -85,7 +89,9 @@ fn main() -> Result<()> {
         let mut endpoint_file = File::create(endpoint_path)?;
         endpoint_file.write_all(endpoint_code.as_bytes())?;
     } else {
-        let code = defs.build_combined_module(&*generator).collapse_root("\t");
+        let code = defs
+            .build_unified_joint_module(&*generator)
+            .collapse_root("\t");
         let mut path = cli.path.clone();
 
         path.push(format!("{prefix}generted"));

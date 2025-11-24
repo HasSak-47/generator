@@ -11,7 +11,9 @@ fn parse_test() -> Result<()> {
     defs.build_definitons();
     let generator = ts::TS::default();
 
-    let code = defs.build_combined_module(&generator).collapse_root("\t");
+    let code = defs
+        .build_unified_joint_module(&generator)
+        .collapse_root("\t");
 
     let mut path = current_dir()?;
 

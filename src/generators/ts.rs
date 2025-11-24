@@ -336,12 +336,20 @@ impl Generator for TS {
         return code;
     }
 
-    fn generate_type_translation(&self, ty: &TypeInformation, defs: &Definitons) -> Code {
+    fn generate_type_translation(
+        &self,
+        public: bool,
+        ty: &TypeInformation,
+        defs: &Definitons,
+    ) -> Code {
         let name = &ty.name.as_ref().unwrap();
         let mut code = Code::new_segment();
 
         let domain_code = code.create_child_segment();
-        domain_code.add_line(format!("function into_domain_{name}(m: _{name}){{"));
+        domain_code.add_line(format!(
+            "{} function into_domain_{name}(m: _{name}){{",
+            if public { "export " } else { "" }
+        ));
         match &ty.ty {
             Type::Struct(s) => domain_code.add_child(self.generate_struct_translation(
                 name,
@@ -476,7 +484,7 @@ impl Generator for TS {
             fetch_body.add_line("body: JSON.stringify({".to_string());
             let body_code = fetch_body.create_child_block();
 
-            for (name, ty) in &endpoint.params {
+            for (name, _) in &endpoint.params {
                 if let EndPointParamKind::Body = endpoint.get_param_type(&name).unwrap() {
                     body_code.add_line(format!("{name}: {name}"));
                 }

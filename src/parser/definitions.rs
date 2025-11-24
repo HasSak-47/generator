@@ -417,63 +417,101 @@ impl Definitons {
         return Ok(());
     }
 
-    /// Emit code for every domain type using the provided generator implementation.
-    pub fn render_domain_type_definitions<G: Generator + ?Sized>(&self, generator: &G) -> Code {
-        let mut code = Code::new_segment();
+    /// Emit code for every domain type using the provided generator implementation, grouped by
+    /// their source files
+    pub fn render_domain_type_definitions<G>(&self, generator: &G) -> HashMap<PathBuf, Code>
+    where
+        G: Generator + ?Sized,
+    {
+        let mut map = HashMap::<PathBuf, Code>::new();
+
         for (name, ty) in &self.named_types {
+            let path = &ty.path;
             let ty = ty.get_domain_type();
-            code.add_child(generator.generate_type(name, ty, true, self));
+            let code = generator.generate_type(name, ty, true, self);
+
+            if !map.contains_key(path) {
+                map.insert(path.clone(), Code::new_segment());
+            }
+            map.get_mut(path).unwrap().add_child(code);
         }
-        return code;
+        return map;
     }
 
     /// Emit the wire-model definitions for types that require conversion.
-    pub fn render_wire_type_definitions<G: Generator + ?Sized>(&self, generator: &G) -> Code {
-        let mut code = Code::new_segment();
+    pub fn render_wire_type_definitions<G>(&self, generator: &G) -> HashMap<PathBuf, Code>
+    where
+        G: Generator + ?Sized,
+    {
+        let mut map = HashMap::<PathBuf, Code>::new();
+
         for (_, ty) in &self.named_types {
             if ty.has_conversion() {
-                let ty = generator.generate_type(
+                let path = &ty.path;
+                let code = generator.generate_type(
                     ty.get_wire_name().as_ref().unwrap().as_str(),
                     ty.get_wire_type(),
                     false,
                     self,
                 );
-                code.add_child(ty);
+                if !map.contains_key(path) {
+                    map.insert(path.clone(), Code::new_segment());
+                }
+                map.get_mut(path).unwrap().add_child(code);
             }
         }
 
-        return code;
+        return map;
     }
 
     /// Emit the helper functions that translate between domain and wire representations.
-    pub fn render_conversion_helpers<G: Generator + ?Sized>(&self, generator: &G) -> Code {
-        let mut code = Code::new_segment();
+    pub fn render_conversion_helpers<G>(&self, generator: &G) -> HashMap<PathBuf, Code>
+    where
+        G: Generator + ?Sized,
+    {
+        let mut map = HashMap::<PathBuf, Code>::new();
+
         for (_, ty) in &self.named_types {
+            let path = &ty.path;
             if ty.conversion.is_none() {
                 continue;
             }
-            code.add_child(generator.generate_type_translation(ty, self));
+            let code = generator.generate_type_translation(false, ty, self);
+            if !map.contains_key(path) {
+                map.insert(path.clone(), Code::new_segment());
+            }
+            map.get_mut(path).unwrap().add_child(code);
         }
 
-        return code;
+        return map;
     }
 
     /// Emit every endpoint definition (handlers or client functions) via the generator.
-    pub fn render_endpoint_definitions<G: Generator + ?Sized>(&self, generator: &G) -> Code {
-        let mut code = Code::new_segment();
+    pub fn render_endpoint_definitions<G>(&self, generator: &G) -> HashMap<PathBuf, Code>
+    where
+        G: Generator + ?Sized,
+    {
+        let mut map = HashMap::<PathBuf, Code>::new();
 
         for (name, endpoint) in &self.end_points {
-            code.add_child(generator.generate_endpoint(name, &endpoint.endpoint, self));
+            let path = &endpoint.path;
+            let code = generator.generate_endpoint(name, &endpoint.endpoint, self);
+            if !map.contains_key(path) {
+                map.insert(path.clone(), Code::new_segment());
+            }
+            map.get_mut(path).unwrap().add_child(code);
         }
 
-        return code;
+        return map;
     }
 
     /// Build a standalone chunk of code that has all the type declarations.
     pub fn build_unified_type_module<G: Generator + ?Sized>(&self, generator: &G) -> Code {
         let mut code = Code::new_segment();
         code.add_child(generator.generate_type_header(self));
-        code.add_child(self.render_domain_type_definitions(generator));
+        for (_, segment) in self.render_domain_type_definitions(generator) {
+            code.add_child(segment);
+        }
 
         return code;
     }
@@ -482,9 +520,15 @@ impl Definitons {
     pub fn build_unified_endpoint_module<G: Generator + ?Sized>(&self, generator: &G) -> Code {
         let mut code = Code::new_segment();
         code.add_child(generator.generate_endpoint_header(self));
-        code.add_child(self.render_wire_type_definitions(generator));
-        code.add_child(self.render_conversion_helpers(generator));
-        code.add_child(self.render_endpoint_definitions(generator));
+        for (_, segment) in self.render_wire_type_definitions(generator) {
+            code.add_child(segment);
+        }
+        for (_, segment) in self.render_conversion_helpers(generator) {
+            code.add_child(segment);
+        }
+        for (_, segment) in self.render_endpoint_definitions(generator) {
+            code.add_child(segment);
+        }
 
         return code;
     }
@@ -495,11 +539,19 @@ impl Definitons {
         code.add_child(generator.generate_endpoint_header(self));
         code.add_child(generator.generate_type_header(self));
 
-        code.add_child(self.render_domain_type_definitions(generator));
+        for (_, segment) in self.render_domain_type_definitions(generator) {
+            code.add_child(segment);
+        }
 
-        code.add_child(self.render_wire_type_definitions(generator));
-        code.add_child(self.render_conversion_helpers(generator));
-        code.add_child(self.render_endpoint_definitions(generator));
+        for (_, segment) in self.render_wire_type_definitions(generator) {
+            code.add_child(segment);
+        }
+        for (_, segment) in self.render_conversion_helpers(generator) {
+            code.add_child(segment);
+        }
+        for (_, segment) in self.render_endpoint_definitions(generator) {
+            code.add_child(segment);
+        }
 
         return code;
     }
@@ -557,11 +609,17 @@ pub trait Generator {
     fn generate_endpoint_header(&self, _defs: &Definitons) -> Code {
         return Code::new_segment();
     }
+
     fn generate_type_header(&self, _defs: &Definitons) -> Code {
         return Code::new_segment();
     }
 
     fn generate_type(&self, name: &str, model: &Type, public: bool, defs: &Definitons) -> Code;
-    fn generate_type_translation(&self, model: &TypeInformation, defs: &Definitons) -> Code;
+    fn generate_type_translation(
+        &self,
+        public: bool,
+        ty: &TypeInformation,
+        defs: &Definitons,
+    ) -> Code;
     fn generate_endpoint(&self, name: &str, endpoint: &EndPoint, defs: &Definitons) -> Code;
 }
