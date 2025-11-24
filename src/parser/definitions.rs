@@ -1,7 +1,7 @@
 use super::{endpoint::*, types::*};
 use crate::builder::Code;
 use anyhow::Result;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 /// Helper describing the wire/domain pair for a type that requires conversions.
@@ -419,45 +419,45 @@ impl Definitons {
 
     /// Emit code for every domain type using the provided generator implementation, grouped by
     /// their source files
-    pub fn render_domain_type_definitions<G>(&self, generator: &G) -> HashMap<PathBuf, Code>
+    pub fn render_domain_type_definitions<G>(&self, generator: &G) -> HashMap<String, Code>
     where
         G: Generator + ?Sized,
     {
-        let mut map = HashMap::<PathBuf, Code>::new();
+        let mut map = HashMap::<String, Code>::new();
 
         for (name, ty) in &self.named_types {
-            let path = &ty.path;
+            let path = ty.path.file_name().unwrap().to_str().unwrap().to_string();
             let ty = ty.get_domain_type();
             let code = generator.generate_type(name, ty, true, self);
 
-            if !map.contains_key(path) {
+            if !map.contains_key(&path) {
                 map.insert(path.clone(), Code::new_segment());
             }
-            map.get_mut(path).unwrap().add_child(code);
+            map.get_mut(&path).unwrap().add_child(code);
         }
         return map;
     }
 
     /// Emit the wire-model definitions for types that require conversion.
-    pub fn render_wire_type_definitions<G>(&self, generator: &G) -> HashMap<PathBuf, Code>
+    pub fn render_wire_type_definitions<G>(&self, generator: &G) -> HashMap<String, Code>
     where
         G: Generator + ?Sized,
     {
-        let mut map = HashMap::<PathBuf, Code>::new();
+        let mut map = HashMap::<String, Code>::new();
 
         for (_, ty) in &self.named_types {
             if ty.has_conversion() {
-                let path = &ty.path;
+                let path = ty.path.file_name().unwrap().to_str().unwrap().to_string();
                 let code = generator.generate_type(
                     ty.get_wire_name().as_ref().unwrap().as_str(),
                     ty.get_wire_type(),
                     false,
                     self,
                 );
-                if !map.contains_key(path) {
+                if !map.contains_key(&path) {
                     map.insert(path.clone(), Code::new_segment());
                 }
-                map.get_mut(path).unwrap().add_child(code);
+                map.get_mut(&path).unwrap().add_child(code);
             }
         }
 
@@ -465,41 +465,47 @@ impl Definitons {
     }
 
     /// Emit the helper functions that translate between domain and wire representations.
-    pub fn render_conversion_helpers<G>(&self, generator: &G) -> HashMap<PathBuf, Code>
+    pub fn render_conversion_helpers<G>(&self, generator: &G) -> HashMap<String, Code>
     where
         G: Generator + ?Sized,
     {
-        let mut map = HashMap::<PathBuf, Code>::new();
+        let mut map = HashMap::<String, Code>::new();
 
         for (_, ty) in &self.named_types {
-            let path = &ty.path;
+            let path = ty.path.file_name().unwrap().to_str().unwrap().to_string();
             if ty.conversion.is_none() {
                 continue;
             }
             let code = generator.generate_type_translation(false, ty, self);
-            if !map.contains_key(path) {
+            if !map.contains_key(&path) {
                 map.insert(path.clone(), Code::new_segment());
             }
-            map.get_mut(path).unwrap().add_child(code);
+            map.get_mut(&path).unwrap().add_child(code);
         }
 
         return map;
     }
 
     /// Emit every endpoint definition (handlers or client functions) via the generator.
-    pub fn render_endpoint_definitions<G>(&self, generator: &G) -> HashMap<PathBuf, Code>
+    pub fn render_endpoint_definitions<G>(&self, generator: &G) -> HashMap<String, Code>
     where
         G: Generator + ?Sized,
     {
-        let mut map = HashMap::<PathBuf, Code>::new();
+        let mut map = HashMap::<String, Code>::new();
 
         for (name, endpoint) in &self.end_points {
-            let path = &endpoint.path;
+            let path = endpoint
+                .path
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_string();
             let code = generator.generate_endpoint(name, &endpoint.endpoint, self);
-            if !map.contains_key(path) {
+            if !map.contains_key(&path) {
                 map.insert(path.clone(), Code::new_segment());
             }
-            map.get_mut(path).unwrap().add_child(code);
+            map.get_mut(&path).unwrap().add_child(code);
         }
 
         return map;
@@ -562,19 +568,18 @@ impl Definitons {
     where
         G: Generator + ?Sized,
     {
-        let mut modules: HashMap<_, Code> = HashMap::new();
-        for (name, info) in &self.named_types {
-            let path = info.path.file_name().unwrap().to_str().unwrap().to_string();
-            if let Some(code) = modules.get_mut(&path) {
-                code.add_child(generator.generate_type(&name, &info.ty, true, self));
-            } else {
+        let mut map = HashMap::new();
+        for (path, segment) in self.render_domain_type_definitions(generator) {
+            if !map.contains_key(&path) {
                 let mut code = Code::new_segment();
-                code.add_child(generator.generate_type(&name, &info.ty, true, self));
-                modules.insert(path, code);
+                code.add_child(generator.generate_type_header(self));
+
+                map.insert(path.clone(), code);
             }
+            map.get_mut(&path).unwrap().add_child(segment);
         }
 
-        return modules;
+        return map;
     }
 
     /// Build a HashMap in which the key is the file name and the value is a chunk of code
@@ -583,7 +588,38 @@ impl Definitons {
     where
         G: Generator + ?Sized,
     {
-        todo!()
+        let mut map = HashMap::new();
+        for (path, segment) in self.render_wire_type_definitions(generator) {
+            if !map.contains_key(&path) {
+                let mut code = Code::new_segment();
+                code.add_child(generator.generate_endpoint_header(self));
+
+                map.insert(path.clone(), code);
+            }
+            map.get_mut(&path).unwrap().add_child(segment);
+        }
+
+        for (path, segment) in self.render_conversion_helpers(generator) {
+            if !map.contains_key(&path) {
+                let mut code = Code::new_segment();
+                code.add_child(generator.generate_endpoint_header(self));
+
+                map.insert(path.clone(), code);
+            }
+            map.get_mut(&path).unwrap().add_child(segment);
+        }
+
+        for (path, segment) in self.render_endpoint_definitions(generator) {
+            if !map.contains_key(&path) {
+                let mut code = Code::new_segment();
+                code.add_child(generator.generate_endpoint_header(self));
+
+                map.insert(path.clone(), code);
+            }
+            map.get_mut(&path).unwrap().add_child(segment);
+        }
+
+        return map;
     }
 
     /// Build a HashMap in which the key is the file name and the value is a chunk of code
@@ -592,7 +628,55 @@ impl Definitons {
     where
         G: Generator + ?Sized,
     {
-        todo!()
+        let mut endpoint_headers = HashSet::<String>::new();
+        let mut type_headers = HashSet::<String>::new();
+
+        let mut map = HashMap::new();
+        for (path, segment) in self.render_domain_type_definitions(generator) {
+            if !map.contains_key(&path) {
+                let mut code = Code::new_segment();
+                code.add_child(generator.generate_type_header(self));
+
+                map.insert(path.clone(), code);
+            }
+            type_headers.insert(path.clone());
+            map.get_mut(&path).unwrap().add_child(segment);
+        }
+
+        for (path, segment) in self.render_wire_type_definitions(generator) {
+            if !map.contains_key(&path) {
+                let mut code = Code::new_segment();
+                code.add_child(generator.generate_endpoint_header(self));
+
+                map.insert(path.clone(), code);
+            }
+            endpoint_headers.insert(path.clone());
+            map.get_mut(&path).unwrap().add_child(segment);
+        }
+
+        for (path, segment) in self.render_conversion_helpers(generator) {
+            if !map.contains_key(&path) {
+                let mut code = Code::new_segment();
+                code.add_child(generator.generate_endpoint_header(self));
+
+                map.insert(path.clone(), code);
+            }
+            endpoint_headers.insert(path.clone());
+            map.get_mut(&path).unwrap().add_child(segment);
+        }
+
+        for (path, segment) in self.render_endpoint_definitions(generator) {
+            if !map.contains_key(&path) {
+                let mut code = Code::new_segment();
+                code.add_child(generator.generate_endpoint_header(self));
+
+                map.insert(path.clone(), code);
+            }
+            endpoint_headers.insert(path.clone());
+            map.get_mut(&path).unwrap().add_child(segment);
+        }
+
+        return map;
     }
 
     pub fn get_named_type<S: AsRef<str>>(&self, name: S) -> Option<&TypeInformation> {
