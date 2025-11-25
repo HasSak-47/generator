@@ -1,12 +1,7 @@
 //! Command-line entry point that wires CLI flags to the concrete code generators.
 
-mod builder;
-mod generators;
-mod parser;
-#[cfg(test)]
-mod tests;
 
-use crate::parser::definitions::*;
+use genlib::parser::definitions::*;
 
 use std::{fs::File, io::Write, path::PathBuf};
 
