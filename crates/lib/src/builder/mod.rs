@@ -85,20 +85,19 @@ impl Code {
             Code::Line(s) => return format!("{}{s}\n", ind.repeat(depth)),
             Code::Segment { childs } => {
                 let mut buf = String::new();
-                // buf += format!("//{}SEGMENT {child_depth}\n", ">".repeat(child_depth)).as_str();
+
                 for child in childs {
                     if child.has_code() {
                         buf += child._collapse_root(ind, depth, child_depth + 1).as_str();
                     }
                 }
                 buf += "\n";
-                // buf += format!("//{}SEGMENT {child_depth}\n", "<".repeat(child_depth)).as_str();
 
                 return buf;
             }
             Code::Block { childs } => {
                 let mut buf = String::new();
-                // buf += format!("//{}body {child_depth}\n", ">".repeat(child_depth)).as_str();
+
                 for child in childs {
                     if child.has_code() {
                         buf += child
@@ -106,7 +105,7 @@ impl Code {
                             .as_str();
                     }
                 }
-                // buf += format!("//{}BODY {child_depth}\n", "<".repeat(child_depth)).as_str();
+
                 return buf;
             }
         };
