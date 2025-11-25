@@ -3,27 +3,18 @@ use std::ffi::c_char;
 use crate::builder::Code;
 
 #[repr(C)]
-enum EnumCodeFFI {
+pub enum CodeFFI {
     Code(Box<Code>),
     Ref(*mut Code),
 }
 
-#[repr(transparent)]
-pub struct CodeFFI {
-    code: EnumCodeFFI,
-}
-
 impl CodeFFI {
-    fn from_enum(code: EnumCodeFFI) -> Self {
-        Self { code }
-    }
-
     fn from_ref(code: *mut Code) -> Self {
-        Self::from_enum(EnumCodeFFI::Ref(code))
+        Self::Ref(code)
     }
 
     fn from_code(code: Code) -> Self {
-        Self::from_enum(EnumCodeFFI::Code(Box::new(code)))
+        Self::Code(Box::new(code))
     }
 
     #[allow(dead_code)]
@@ -44,17 +35,17 @@ impl CodeFFI {
 
     #[allow(dead_code)]
     fn get_code(&mut self) -> &mut Code {
-        match &mut self.code {
-            EnumCodeFFI::Code(c) => c,
-            EnumCodeFFI::Ref(c) => unsafe { &mut **c },
+        match self {
+            CodeFFI::Code(c) => c,
+            CodeFFI::Ref(c) => unsafe { &mut **c },
         }
     }
 
     #[allow(dead_code)]
     fn take_code(self) -> Code {
-        match self.code {
-            EnumCodeFFI::Code(c) => *c,
-            EnumCodeFFI::Ref(_) => unreachable!(),
+        match self {
+            CodeFFI::Code(c) => *c,
+            CodeFFI::Ref(_) => unreachable!(),
         }
     }
 
