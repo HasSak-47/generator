@@ -1,3 +1,5 @@
+pub mod ffi;
+
 /// Tiny tree-based code builder that preserves indentation.
 pub enum Code {
     Segment { childs: Vec<Code> },
