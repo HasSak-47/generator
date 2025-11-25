@@ -152,8 +152,10 @@ dependencies = [
 name = "generator"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "clap",
  "genlib",
+ "thiserror",
 ]
 
 [[package]]

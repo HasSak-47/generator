@@ -1,13 +1,14 @@
 #![allow(unused_imports)]
 
-use genlib::{builder::*, generators::*, parser::definitions::*};
 use anyhow::Result;
-use std::{env::current_dir, fs::File, io::Write};
+use genlib::{builder::*, generators::*, parser::definitions::*};
+use std::{env::current_dir, fs::File, io::Write, path::PathBuf};
 
 #[test]
 fn parse_test() -> Result<()> {
     let mut defs = Definitons::new();
-    defs.load_from_file("./unit.gdsl")?;
+    let path = PathBuf::from("./tests/unit.gdsl");
+    defs.load_from_file(path)?;
     defs.build_definitons();
     let generator = ts::TS::default();
 
@@ -17,7 +18,7 @@ fn parse_test() -> Result<()> {
 
     let mut path = current_dir()?;
 
-    path.push("temp");
+    path.push("../../temp");
     path.push("generated");
     path.set_extension("ts");
 

@@ -5,11 +5,10 @@ use crate::{
     parser::{definitions::*, endpoint::*, types::*},
 };
 
-use clap::{Parser, ValueEnum};
-
 /// Controls how single typed literal unions are translated in TypeScript output.
-#[derive(ValueEnum, Debug, Default, Clone, PartialEq)]
-#[value(rename_all = "snake_case")]
+//#[derive(ValueEnum)]
+//#[value(rename_all = "snake_case")]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub enum EnumHandling {
     ToEnum,
     ToType,
@@ -32,8 +31,9 @@ impl Display for EnumHandling {
 }
 
 /// Shapes the return type of HTTP helpers when a request fails.
-#[derive(ValueEnum, Debug, Default, Clone, PartialEq)]
-#[value(rename_all = "snake_case")]
+//#[derive(ValueEnum, Debug, Default, Clone, PartialEq)]
+//#[value(rename_all = "snake_case")]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub enum ErrorHandling {
     Result,
     Pair,
@@ -56,14 +56,15 @@ impl Display for ErrorHandling {
 }
 
 /// CLI surface for the TypeScript generator.
-#[derive(Parser, Clone, Default)]
+//#[derive(Parser)]
+#[derive(Clone, Default)]
 pub struct TS {
     /// Determines whether fetch helpers throw, return `Result`, or return `(data, err)` tuples.
-    #[arg(short, long, default_value_t = ErrorHandling::Raise)]
+    // #[arg(short, long, default_value_t = ErrorHandling::Raise)]
     pub error_handling: ErrorHandling,
 
     /// Toggles how literal unions are emitted.
-    #[arg(short, long, default_value_t = EnumHandling::ToType)]
+    // #[arg(short, long, default_value_t = EnumHandling::ToType)]
     pub type_enum: EnumHandling,
 }
 

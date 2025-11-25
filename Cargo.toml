@@ -3,6 +3,7 @@ members = [
     'crates/cli',
     'crates/lib',
 ]
+resolver = "3"
 
 [workspace.dependencies]
 anyhow = "1.0.100"
