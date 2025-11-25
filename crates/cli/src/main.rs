@@ -3,12 +3,15 @@
 use std::{fs::File, io::Write, path::PathBuf};
 
 use genlib::{
-    generators::{python::FastApi, ts::TS},
+    generators::{
+        python::FastApi,
+        ts::{self, TS},
+    },
     parser::definitions::*,
 };
 
 use anyhow::Result;
-use clap::{self, Parser, Subcommand};
+use clap::{self, Arg, ArgAction, Args, Parser, Subcommand, arg};
 
 /// CLI surface exposed by `cargo run -- ...`.
 #[derive(Parser)]
@@ -31,86 +34,22 @@ struct Cli {
     #[arg(long, default_value_t = String::new())]
     pub postfix: String,
 
+    #[command(subcommand)]
+    pub generator: Generators,
+
     /// Destination directory for generated files.
     #[arg(short, long, default_value_os_t = {PathBuf::from("./src/generated")})]
     pub path: PathBuf,
-
-    #[command(subcommand)]
-    pub generator: Generators,
 }
-
-#[derive(Clone)]
-struct TSWrapper(TS);
-#[derive(Clone)]
-struct FastApiWrapper(FastApi);
 
 /// Select which target backend should render the DSL.
 #[derive(Subcommand, Clone)]
 enum Generators {
-    PythonFastApi(FastApiWrapper),
-    Typescript(TSWrapper),
+    Typescript(TS),
+    PythonFastApi(FastApi),
 }
-
-impl clap::Args for FastApiWrapper {
-    fn augment_args_for_update(cmd: clap::Command) -> clap::Command {
-        todo!()
-    }
-    fn augment_args(cmd: clap::Command) -> clap::Command {
-        todo!()
-    }
-}
-impl clap::FromArgMatches for FastApiWrapper {
-    fn update_from_arg_matches(
-        &mut self,
-        matches: &clap::ArgMatches,
-    ) -> std::result::Result<(), clap::Error> {
-        todo!()
-    }
-
-    fn from_arg_matches(matches: &clap::ArgMatches) -> std::result::Result<Self, clap::Error> {
-        todo!()
-    }
-
-    fn from_arg_matches_mut(
-        matches: &mut clap::ArgMatches,
-    ) -> std::result::Result<Self, clap::Error> {
-        todo!()
-    }
-}
-
-impl clap::Args for TSWrapper {
-    fn augment_args_for_update(cmd: clap::Command) -> clap::Command {
-        todo!()
-    }
-    fn augment_args(cmd: clap::Command) -> clap::Command {
-        todo!()
-    }
-}
-impl clap::FromArgMatches for TSWrapper {
-    fn update_from_arg_matches(
-        &mut self,
-        matches: &clap::ArgMatches,
-    ) -> std::result::Result<(), clap::Error> {
-        todo!()
-    }
-
-    fn from_arg_matches(matches: &clap::ArgMatches) -> std::result::Result<Self, clap::Error> {
-        todo!()
-    }
-
-    fn from_arg_matches_mut(
-        matches: &mut clap::ArgMatches,
-    ) -> std::result::Result<Self, clap::Error> {
-        todo!()
-    }
-}
-
-fn main() {}
-
-/*
 
 fn main() -> Result<()> {
-    // Parse CLI args, load the DSL, and hand the parsed AST to the requested generator.
     let cli = Cli::parse();
     let mut defs = Definitons::new();
     for def in cli.definitions {
@@ -196,4 +135,3 @@ fn main() -> Result<()> {
 
     return Ok(());
 }
-*/

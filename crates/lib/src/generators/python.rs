@@ -5,11 +5,11 @@ use crate::{
     parser::{definitions::*, endpoint::*, types::*},
 };
 
-// use clap::{Parser, ValueEnum};
+use clap::{Parser, ValueEnum, arg};
 
 /// Determine how literal unions should be represented in Pydantic models.
-// #[derive(ValueEnum)]
-// #[value(rename_all = "snake_case")]
+#[derive(ValueEnum)]
+#[value(rename_all = "snake_case")]
 #[derive(Debug, Default, Clone, PartialEq)]
 pub enum EnumHandling {
     /// python unions A | B
@@ -22,11 +22,11 @@ pub enum EnumHandling {
 }
 
 /// CLI surface for the FastAPI generator.
-#[derive(Clone)]
+#[derive(Parser, Clone)]
 pub struct FastApi {
     /// Module path or symbol used in the generated decorators, e.g. `app`.
     pub app_name: String,
-    // #[arg(short, long, value_enum, default_value_t = EnumHandling::ToType)]
+    #[arg(short, long, value_enum, default_value_t = EnumHandling::ToType)]
     pub enum_handling: EnumHandling,
 }
 

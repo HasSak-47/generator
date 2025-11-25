@@ -173,6 +173,7 @@ name = "genlib"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "clap",
  "pest",
  "pest_derive",
  "thiserror",
