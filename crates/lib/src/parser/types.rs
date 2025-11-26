@@ -1,4 +1,7 @@
-use std::fmt::{Debug, Display};
+use std::{
+    collections::HashSet,
+    fmt::{Debug, Display},
+};
 
 use crate::parser::definitions::Definitons;
 
@@ -163,6 +166,32 @@ impl Default for Type {
 }
 
 impl Type {
+    pub fn get_dependencies(&self) -> HashSet<String> {
+        match self {
+            Self::Array(arr) => return arr.ty.get_dependencies(),
+            Self::Optional(opt) => return opt.ty.get_dependencies(),
+            Self::Union(union) => {
+                let mut v = HashSet::new();
+                for ty in &union.members {
+                    let w = ty.ty.get_dependencies();
+                    v.extend(w.into_iter());
+                }
+
+                return v;
+            }
+            Self::Struct(s) => {
+                let mut v = HashSet::new();
+                for (_, ty) in &s.members {
+                    let w = ty.get_dependencies();
+                    v.extend(w.into_iter());
+                }
+
+                return v;
+            }
+            _ => HashSet::new(),
+        }
+    }
+
     #[allow(dead_code)]
     pub fn int(prec: Option<usize>) -> Self {
         Self::Primitive(PrimitiveType::Integer(prec))

@@ -424,8 +424,10 @@ impl Definitons {
         G: Generator + ?Sized,
     {
         let mut map = HashMap::<String, Code>::new();
+        let mut named_types: Vec<_> = self.named_types.iter().collect();
+        named_types.sort_by(|ti1, ti2| ti1.0.cmp(ti2.0));
 
-        for (name, ty) in &self.named_types {
+        for (name, ty) in named_types {
             let path = ty.path.file_name().unwrap().to_str().unwrap().to_string();
             let ty = ty.get_domain_type();
             let code = generator.generate_type(name, ty, true, self);
@@ -444,8 +446,10 @@ impl Definitons {
         G: Generator + ?Sized,
     {
         let mut map = HashMap::<String, Code>::new();
+        let mut named_types: Vec<_> = self.named_types.iter().collect();
+        named_types.sort_by(|ti1, ti2| ti1.0.cmp(ti2.0));
 
-        for (_, ty) in &self.named_types {
+        for (_, ty) in named_types {
             if ty.has_conversion() {
                 let path = ty.path.file_name().unwrap().to_str().unwrap().to_string();
                 let code = generator.generate_type(
@@ -470,8 +474,10 @@ impl Definitons {
         G: Generator + ?Sized,
     {
         let mut map = HashMap::<String, Code>::new();
+        let mut named_types: Vec<_> = self.named_types.iter().collect();
+        named_types.sort_by(|ti1, ti2| ti1.0.cmp(ti2.0));
 
-        for (_, ty) in &self.named_types {
+        for (_, ty) in named_types {
             let path = ty.path.file_name().unwrap().to_str().unwrap().to_string();
             if ty.conversion.is_none() {
                 continue;
@@ -492,8 +498,10 @@ impl Definitons {
         G: Generator + ?Sized,
     {
         let mut map = HashMap::<String, Code>::new();
+        let mut endpoints: Vec<_> = self.end_points.iter().collect();
+        endpoints.sort_by(|ti1, ti2| ti1.0.cmp(ti2.0));
 
-        for (name, endpoint) in &self.end_points {
+        for (name, endpoint) in endpoints {
             let path = endpoint
                 .path
                 .file_name()
