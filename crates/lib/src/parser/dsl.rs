@@ -233,6 +233,7 @@ pub fn add_definitions<P: AsRef<Path>>(defs: &mut Definitons, path: P) -> Result
                 }
 
                 match iter.next().unwrap().into_inner().next().unwrap().as_str() {
+                    "delete" => end_point.method = EndPointMethod::DELETE,
                     "post" => end_point.method = EndPointMethod::POST,
                     "put" => end_point.method = EndPointMethod::PUT,
                     "get" => end_point.method = EndPointMethod::GET,

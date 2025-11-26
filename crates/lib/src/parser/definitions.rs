@@ -635,6 +635,7 @@ impl Definitons {
         for (path, segment) in self.render_domain_type_definitions(generator) {
             if !map.contains_key(&path) {
                 let mut code = Code::new_segment();
+                code.add_child(generator.generate_endpoint_header(self));
                 code.add_child(generator.generate_type_header(self));
 
                 map.insert(path.clone(), code);
@@ -647,6 +648,7 @@ impl Definitons {
             if !map.contains_key(&path) {
                 let mut code = Code::new_segment();
                 code.add_child(generator.generate_endpoint_header(self));
+                code.add_child(generator.generate_type_header(self));
 
                 map.insert(path.clone(), code);
             }
@@ -658,6 +660,7 @@ impl Definitons {
             if !map.contains_key(&path) {
                 let mut code = Code::new_segment();
                 code.add_child(generator.generate_endpoint_header(self));
+                code.add_child(generator.generate_type_header(self));
 
                 map.insert(path.clone(), code);
             }
@@ -669,14 +672,13 @@ impl Definitons {
             if !map.contains_key(&path) {
                 let mut code = Code::new_segment();
                 code.add_child(generator.generate_endpoint_header(self));
+                code.add_child(generator.generate_type_header(self));
 
                 map.insert(path.clone(), code);
             }
             endpoint_headers.insert(path.clone());
             map.get_mut(&path).unwrap().add_child(segment);
         }
-
-        let mut header = Code::new_segment();
 
         return map;
     }

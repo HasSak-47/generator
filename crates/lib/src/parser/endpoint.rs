@@ -8,6 +8,7 @@ pub enum EndPointMethod {
     GET,
     POST,
     PUT,
+    DELETE,
 }
 
 impl Display for EndPointMethod {
@@ -16,6 +17,7 @@ impl Display for EndPointMethod {
             f,
             "{}",
             match self {
+                Self::DELETE => "delete",
                 Self::GET => "get",
                 Self::POST => "post",
                 Self::PUT => "put",
