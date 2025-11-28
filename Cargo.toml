@@ -1,7 +1,6 @@
 [workspace]
 members = [
-    'crates/cli',
-    'crates/lib',
+    'crates/cli', 'crates/lib', 'crates/lsp',
 ]
 resolver = "3"
 

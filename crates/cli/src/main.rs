@@ -8,7 +8,7 @@ use genlib::{
 };
 
 use anyhow::Result;
-use clap::{self, Arg, ArgAction, Args, Parser, Subcommand, arg};
+use clap::{self, Parser, Subcommand, arg};
 
 /// CLI surface exposed by `cargo run -- ...`.
 #[derive(Parser)]
