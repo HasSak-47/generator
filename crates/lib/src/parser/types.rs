@@ -143,6 +143,21 @@ impl StructType {
     }
 }
 
+#[derive(PartialEq, Clone)]
+pub struct MapType {
+    pub key: PrimitiveType,
+    pub val: Box<Type>,
+}
+
+impl MapType {
+    pub fn new(key: PrimitiveType, val: Type) -> Self {
+        return Self {
+            key,
+            val: Box::new(val),
+        };
+    }
+}
+
 /// Root semantic type tree used by generators.
 #[derive(PartialEq, Clone)]
 pub enum Type {
@@ -155,8 +170,9 @@ pub enum Type {
     Union(UnionType),         // T1 | T2 | ...| Tn
     Struct(StructType),       // T1 | T2 | ...| Tn
     Into(IntoType),           // T as Repr
-    Named(String),            // Name
-    Undetermined(String),     // Name
+    Map(MapType),
+    Named(String),        // Name
+    Undetermined(String), // Name
 }
 
 impl Default for Type {
@@ -232,6 +248,10 @@ impl Type {
             Self::Struct(s) => return s,
             _ => panic!("type was not a struct"),
         }
+    }
+    #[allow(dead_code)]
+    pub fn map(key: PrimitiveType, val: Type) -> Self {
+        Self::Map(MapType::new(key, val))
     }
 
     /// Returns true if the type or any nested field needs an `Into` conversion before transport.
@@ -336,9 +356,17 @@ impl Display for UnionType {
     }
 }
 
+impl Display for MapType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<{}, {}>", self.key, self.val)?;
+        return Ok(());
+    }
+}
+
 impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Map(m) => write!(f, "{m}")?,
             Self::Union(s) => write!(f, "{s}")?,
             Self::Literal(l) => write!(f, "{l}")?,
             Self::Primitive(p) => write!(f, "{p}")?,
@@ -412,9 +440,17 @@ impl Debug for UnionType {
     }
 }
 
+impl Debug for MapType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<{:?}, {:?}>", self.key, self.val)?;
+        return Ok(());
+    }
+}
+
 impl Debug for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Map(m) => write!(f, "{m}")?,
             Self::Union(s) => write!(f, "{s}")?,
             Self::Literal(l) => write!(f, "{l}")?,
             Self::Primitive(p) => write!(f, "{p:?}")?,

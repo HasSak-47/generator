@@ -245,6 +245,9 @@ impl Definitons {
                     Definitons::resolve_type_references(ty, names);
                 }
             }
+            Type::Map(map) => {
+                Definitons::resolve_type_references(&mut map.val, names);
+            }
             Type::Undetermined(name) => {
                 let found_name = names.iter().find(|n| **n == *name);
                 if found_name.is_none() {

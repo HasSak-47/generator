@@ -34,6 +34,17 @@ fn handle_primitive_type<'a>(p: Pair<'a, Rule>) -> Type {
     }
 }
 
+fn handle_map<'a>(p: Pair<'a, Rule>) -> Result<Type> {
+    let mut inner = p.into_inner();
+    let primitive = handle_primitive_type(inner.next().unwrap());
+    let ty = handle_type(inner.next().unwrap())?;
+
+    if let Type::Primitive(p) = primitive {
+        return Ok(Type::map(p, ty));
+    }
+    unreachable!()
+}
+
 /// Materialize a `struct` block from the parsed grammar into a `StructType`.
 fn handle_struct<'a>(p: Pair<'a, Rule>) -> Result<Type> {
     let inner = p.into_inner();
@@ -134,6 +145,7 @@ fn handle_type<'a>(p: Pair<'a, Rule>) -> Result<Type> {
             return Ok(Type::Union(union));
         }
         Rule::struct_type => handle_struct(next)?,
+        Rule::map_type => handle_map(next)?,
         e => unreachable!("unreachable rule reached? : {e:?}"),
     };
 

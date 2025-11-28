@@ -86,6 +86,14 @@ impl TS {
         .to_string()
     }
 
+    fn ts_object_literal(&self, m: &MapType, defs: &Definitons) -> String {
+        return format!(
+            "{{ [key: {}] : {}; }}",
+            self.ts_signature_for_primitive(&m.key),
+            self.ts_type_literal(defs, &m.val)
+        );
+    }
+
     fn ts_union_literal(&self, e: &UnionType, defs: &Definitons) -> String {
         let mut poss = e.members.iter();
         let mut s = format!("{}", self.ts_type_literal(defs, &poss.next().unwrap().ty));
@@ -128,6 +136,7 @@ impl TS {
                 format!("{l}")
             }
             Type::Union(u) => self.ts_union_literal(u, defs),
+            Type::Map(m) => self.ts_object_literal(m, defs),
             Type::Undetermined(u) => {
                 panic!("Undetermined: {u:?} reached a TS generator {defs:#?}",)
             }
