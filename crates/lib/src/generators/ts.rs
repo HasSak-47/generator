@@ -424,7 +424,13 @@ impl Generator for TS {
                 ));
             }
 
-            _ => todo!(),
+            _ => {
+                code.add_line(format!(
+                    "{}type {name} = {}",
+                    if public { "export " } else { "" },
+                    self.ts_type_literal(defs, ty)
+                ));
+            }
         };
         return code;
     }

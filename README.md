@@ -39,7 +39,7 @@ cargo run -p cli -- ./defs/users.defs ./defs/orders.defs python-fast-api <app> [
 
 ### Common flags
 
-- `-d, --desctructive` – Allow overwriting files in `--path` (default skips files that already exist).
+- `-d, --destructive` – Allow overwriting files in `--path` (default skips files that already exist).
 - `-v, --verbose` – Log extra progress while generating.
 - `-S, --split` – Emit separate `types_*` and `endpoints_*` files; otherwise everything for a module lives in a single file.
 - `-u, --united <name>` – Collapse all input definitions into one shared output file handle named `<name>` (pairs nicely with split to create `types_<name>` / `endpoint_<name>`).
@@ -61,7 +61,7 @@ cargo run -p cli -- ./defs/users.defs ./defs/orders.defs python-fast-api <app> [
 - **Decoupled (default):** Each `.defs` file produces its own `{prefix}{module}{postfix}.{ext}` bundle. Add `-S/--split` to emit `types_{module}` and `endpoints_{module}` instead.
 - **United:** Supplying `-u/--united <name>` merges all parsed modules into a single output. With split enabled this becomes `types_<name>` / `endpoint_<name>`; otherwise it is `{prefix}<name>{postfix}.{ext}`.
 
-The CLI only overwrites files when `--desctructive` is set. Combine `--prefix`, `--postfix`, and `--path` to keep experimental output isolated from checked-in code.
+The CLI only overwrites files when `--destructive` is set. Combine `--prefix`, `--postfix`, and `--path` to keep experimental output isolated from checked-in code.
 
 ## Repository Map
 
@@ -83,7 +83,7 @@ This repo is a Cargo workspace with `crates/lib` providing the parser/generator 
 cargo fmt --all
 cargo clippy --all-targets --all-features -D warnings
 cargo test --workspace
-cargo run -p cli -- ./examples/api.defs typescript --path temp/
+cargo run --bin cli -- ./examples/api.defs typescript --path temp/
 ```
 
 Point generator output at `temp/` or another disposable directory so local source files are not overwritten. When iterating on the grammar, focus runs with `cargo test -p lib parse_test`.

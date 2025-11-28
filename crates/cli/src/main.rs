@@ -18,7 +18,7 @@ struct Cli {
 
     /// Overwrite files in `--path` even if they already exist.
     #[arg(short, long, default_value_t = false)]
-    pub desctructive: bool,
+    pub destructive: bool,
 
     /// Print extra progress info while building output.
     #[arg(short, long, default_value_t = false)]
@@ -39,6 +39,10 @@ struct Cli {
     /// Postfix added to every generated filename (helps when mixing variants in the same folder).
     #[arg(long, default_value_t = String::new())]
     pub postfix: String,
+
+    /// Postfix added to every generated filename (helps when mixing variants in the same folder).
+    #[arg(long, default_value_t = false)]
+    pub io: bool,
 
     #[command(subcommand)]
     pub generator: Generators,
@@ -90,18 +94,27 @@ fn main() -> Result<()> {
             type_path.push(format!("{prefix}types_{name}{postfix}"));
             type_path.set_extension(extension);
 
-            if cli.desctructive || (!cli.desctructive && !type_path.exists()) {
-                let mut type_file = File::create(type_path)?;
-                type_file.write_all(type_code.as_bytes())?;
-            }
-
             let mut endpoint_path = cli.path.clone();
             endpoint_path.push(format!("{prefix}endpoint_{name}{postfix}"));
             endpoint_path.set_extension(extension);
 
-            if cli.desctructive || (!cli.desctructive && !endpoint_path.exists()) {
-                let mut endpoint_file = File::create(endpoint_path)?;
-                endpoint_file.write_all(endpoint_code.as_bytes())?;
+            if !cli.io {
+                if cli.destructive || !type_path.exists() {
+                    let mut type_file = File::create(&type_path)?;
+                    type_file.write_all(type_code.as_bytes())?;
+                } else if cli.verbose {
+                    println!("{} already exists not destroying it", type_path.display())
+                }
+
+                if cli.destructive || !endpoint_path.exists() {
+                    let mut endpoint_file = File::create(endpoint_path)?;
+                    endpoint_file.write_all(endpoint_code.as_bytes())?;
+                } else if cli.verbose {
+                    println!("{} already exists not destroying it", type_path.display())
+                }
+            } else {
+                println!("{type_code}");
+                println!("{endpoint_code}");
             }
         } else {
             if cli.verbose {
@@ -115,9 +128,13 @@ fn main() -> Result<()> {
             path.push(format!("{prefix}{name}{postfix}"));
             path.set_extension(extension);
 
-            if cli.desctructive || (!cli.desctructive && !path.exists()) {
-                let mut file = File::create(path)?;
-                file.write_all(code.as_bytes())?;
+            if !cli.io {
+                if cli.destructive || !path.exists() {
+                    let mut file = File::create(path)?;
+                    file.write_all(code.as_bytes())?;
+                }
+            } else {
+                println!("{code}")
             }
         }
     } else {
@@ -131,9 +148,15 @@ fn main() -> Result<()> {
                 type_path.push(format!("{prefix}types_{name}{postfix}"));
                 type_path.set_extension(extension);
 
-                if cli.desctructive || (!cli.desctructive && !type_path.exists()) {
-                    let mut type_file = File::create(type_path)?;
-                    type_file.write_all(type_code.as_bytes())?;
+                if !cli.io {
+                    if cli.destructive || !type_path.exists() {
+                        let mut type_file = File::create(type_path)?;
+                        type_file.write_all(type_code.as_bytes())?;
+                    } else if cli.verbose {
+                        println!("{} already exists not destroying it", type_path.display())
+                    }
+                } else {
+                    println!("{type_code}");
                 }
             }
 
@@ -143,9 +166,18 @@ fn main() -> Result<()> {
                 endpoint_path.push(format!("{prefix}endpoints_{name}{postfix}"));
                 endpoint_path.set_extension(extension);
 
-                if cli.desctructive || (!cli.desctructive && !endpoint_path.exists()) {
-                    let mut endpoint_file = File::create(endpoint_path)?;
-                    endpoint_file.write_all(endpoint_code.as_bytes())?;
+                if !cli.io {
+                    if cli.destructive || !endpoint_path.exists() {
+                        let mut endpoint_file = File::create(endpoint_path)?;
+                        endpoint_file.write_all(endpoint_code.as_bytes())?;
+                    } else if cli.verbose {
+                        println!(
+                            "{} already exists not destroying it",
+                            endpoint_path.display()
+                        )
+                    }
+                } else {
+                    println!("{endpoint_code}");
                 }
             }
         } else {
@@ -158,9 +190,15 @@ fn main() -> Result<()> {
                 path.push(format!("{prefix}{name}{postfix}"));
                 path.set_extension(extension);
 
-                if cli.desctructive || (!cli.desctructive && path.exists()) {
-                    let mut file = File::create(path)?;
-                    file.write_all(code.as_bytes())?;
+                if !cli.io {
+                    if cli.destructive || !path.exists() {
+                        let mut file = File::create(path)?;
+                        file.write_all(code.as_bytes())?;
+                    } else if cli.verbose {
+                        println!("{} already exists not destroying it", path.display())
+                    }
+                } else {
+                    println!("{code}");
                 }
             }
         }
