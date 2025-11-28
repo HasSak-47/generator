@@ -152,8 +152,16 @@ impl Generator for FastApi {
 
         return code;
     }
+    fn generate_to_domain_translation(
+        &self,
+        _public: bool,
+        _model: &TypeInformation,
+        _defs: &Definitons,
+    ) -> Code {
+        return Code::new_segment();
+    }
 
-    fn generate_type_translation(
+    fn generate_to_wire_translation(
         &self,
         _public: bool,
         _model: &TypeInformation,

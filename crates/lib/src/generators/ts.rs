@@ -354,8 +354,7 @@ impl Generator for TS {
 
         return code;
     }
-
-    fn generate_type_translation(
+    fn generate_to_domain_translation(
         &self,
         public: bool,
         ty: &TypeInformation,
@@ -364,19 +363,18 @@ impl Generator for TS {
         let name = &ty.name.as_ref().unwrap();
         let mut code = Code::new_segment();
 
-        let domain_code = code.create_child_segment();
-        domain_code.add_line(format!(
+        code.add_line(format!(
             "{} function into_domain_{name}(m: _{name}){{",
             if public { "export " } else { "" }
         ));
         match &ty.ty {
-            Type::Struct(s) => domain_code.add_child(self.generate_struct_translation(
+            Type::Struct(s) => code.add_child(self.generate_struct_translation(
                 name,
                 &s,
                 defs,
                 |name, ty, defs| self.build_into_domain_expression(name, ty, defs),
             )),
-            Type::Union(u) => domain_code.add_child(self.generate_union_translation(
+            Type::Union(u) => code.add_child(self.generate_union_translation(
                 name,
                 &u,
                 defs,
@@ -384,18 +382,29 @@ impl Generator for TS {
             )),
             _ => todo!(),
         }
-        domain_code.add_line("}".to_string());
+        code.add_line("}".to_string());
 
-        let wire_code = code.create_child_segment();
-        wire_code.add_line(format!("function into_wire_{name}(m: {name}){{"));
+        return code;
+    }
+
+    fn generate_to_wire_translation(
+        &self,
+        _public: bool,
+        ty: &TypeInformation,
+        defs: &Definitons,
+    ) -> Code {
+        let name = &ty.name.as_ref().unwrap();
+        let mut code = Code::new_segment();
+
+        code.add_line(format!("function into_wire_{name}(m: {name}){{"));
         match &ty.ty {
-            Type::Struct(s) => wire_code.add_child(self.generate_struct_translation(
+            Type::Struct(s) => code.add_child(self.generate_struct_translation(
                 ty.get_wire_name().as_ref().unwrap(),
                 &s,
                 defs,
                 |name, ty, defs| self.build_into_wire_expression(name, ty, defs),
             )),
-            Type::Union(u) => wire_code.add_child(self.generate_union_translation(
+            Type::Union(u) => code.add_child(self.generate_union_translation(
                 ty.get_wire_name().as_ref().unwrap(),
                 &u,
                 defs,
@@ -403,7 +412,7 @@ impl Generator for TS {
             )),
             _ => todo!(),
         }
-        wire_code.add_line("}".to_string());
+        code.add_line("}".to_string());
 
         return code;
     }

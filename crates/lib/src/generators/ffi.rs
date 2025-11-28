@@ -57,7 +57,8 @@ struct GeneratorFFI {
     header_type: Option<TypeHeader>,
     header_endpoint: Option<EndpointHeader>,
     ty: Option<Type>,
-    ty_translation: Option<TypeTranslation>,
+    wire_translation: Option<TypeTranslation>,
+    domain_translation: Option<TypeTranslation>,
     endpoint: Option<Endpoint>,
 }
 
@@ -69,7 +70,8 @@ impl GeneratorFFI {
             header_type: None,
             header_endpoint: None,
             ty: None,
-            ty_translation: None,
+            wire_translation: None,
+            domain_translation: None,
             endpoint: None,
         };
     }
@@ -93,8 +95,14 @@ impl GeneratorFFI {
     }
 
     #[allow(dead_code)]
-    extern "C" fn set_type_translation(mut self, t: TypeTranslation) -> GeneratorFFI {
-        self.ty_translation = Some(t);
+    extern "C" fn set_wire_translation(mut self, t: TypeTranslation) -> GeneratorFFI {
+        self.wire_translation = Some(t);
+        self
+    }
+
+    #[allow(dead_code)]
+    extern "C" fn set_domain_translation(mut self, t: TypeTranslation) -> GeneratorFFI {
+        self.domain_translation = Some(t);
         self
     }
 
@@ -134,22 +142,43 @@ impl Generator for GeneratorFFI {
             _ => unreachable!(),
         }
     }
-
-    fn generate_type_translation(
+    fn generate_to_wire_translation(
         &self,
         public: bool,
         tyinfo: &TypeInformation,
         defs: &Definitons,
     ) -> Code {
         assert!(!self.this.is_null());
-        assert!(self.ty_translation.is_some());
+        assert!(self.wire_translation.is_some());
         let model = TypeInfoWrapper {
             defs: tyinfo as *const TypeInformation,
         };
         let defs = DefinitionsWrapper {
             defs: defs as *const Definitons,
         };
-        let codeffi = self.ty_translation.unwrap()(self.this, public as c_char, model, defs);
+        let codeffi = self.wire_translation.unwrap()(self.this, public as c_char, model, defs);
+
+        match codeffi {
+            CodeFFI::Code(code) => *code,
+            _ => unreachable!(),
+        }
+    }
+
+    fn generate_to_domain_translation(
+        &self,
+        public: bool,
+        tyinfo: &TypeInformation,
+        defs: &Definitons,
+    ) -> Code {
+        assert!(!self.this.is_null());
+        assert!(self.domain_translation.is_some());
+        let model = TypeInfoWrapper {
+            defs: tyinfo as *const TypeInformation,
+        };
+        let defs = DefinitionsWrapper {
+            defs: defs as *const Definitons,
+        };
+        let codeffi = self.domain_translation.unwrap()(self.this, public as c_char, model, defs);
 
         match codeffi {
             CodeFFI::Code(code) => *code,

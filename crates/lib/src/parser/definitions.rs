@@ -717,7 +717,13 @@ pub trait Generator {
     }
 
     fn generate_type(&self, name: &str, model: &Type, public: bool, defs: &Definitons) -> Code;
-    fn generate_type_translation(
+    fn generate_to_domain_translation(
+        &self,
+        public: bool,
+        ty: &TypeInformation,
+        defs: &Definitons,
+    ) -> Code;
+    fn generate_to_wire_translation(
         &self,
         public: bool,
         ty: &TypeInformation,
