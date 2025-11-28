@@ -156,6 +156,15 @@ impl TS {
                 let if_body = code.create_child_block();
                 if_body.add_line(format!("searchParams.set('{name}', {name});"));
             }
+            Type::Primitive(p) => match p {
+                PrimitiveType::Integer(_) => {
+                    code.add_line(format!("searchParams.set('{name}', {name}.toString());"))
+                }
+                PrimitiveType::Float(_) => {
+                    code.add_line(format!("searchParams.set('{name}', {name}.toString());"))
+                }
+                _ => code.add_line(format!("searchParams.set('{name}', {name});")),
+            },
             _ => code.add_line(format!("searchParams.set('{name}', {name});")),
         }
 
@@ -533,7 +542,7 @@ impl Generator for TS {
 
         func_body.add_line("let j = await response.json();".to_string());
         let response_segment = func_body.create_child_segment();
-
+        let return_type_literal = self.ts_type_literal(defs, &endpoint.return_type);
         match &endpoint.return_type {
             Type::Named(name) => {
                 let ty = defs.get_named_type(name).unwrap();
@@ -556,19 +565,25 @@ impl Generator for TS {
                 func_body.add_line("return".to_string());
             }
             Type::Primitive(p) => {
-                let expected_type = self.ts_signature_for_primitive(p);
                 response_segment.add_line(format!(
                     "if(typeof j != '{}')",
                     self.ts_signature_for_primitive(p)
                 ));
                 let if_body = response_segment.create_child_block();
                 if_body.add_line(self.emit_error_branch(
-                    &format!("new Error('response was not a {expected_type}')"),
+                    &format!("new Error('response was not a {return_type_literal}')"),
                     &return_type,
                 ));
                 func_body.add_line("return j;".to_string());
             }
             Type::Array(arr) => {
+                let if_array = func_body.create_child_segment();
+                if_array.add_line("if(!Array.isArray(j))".to_string());
+                if_array.add_line(self.emit_error_branch(
+                    &format!("new Error('response was not a {return_type_literal}')"),
+                    &return_type,
+                ));
+
                 if arr.ty.contains_into(defs) {
                     func_body.add_line(format!(
                         "return j.map(m => {});",
