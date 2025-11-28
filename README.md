@@ -30,42 +30,64 @@ See `lang.md` for a longer walkthrough and `pest/lang.pest` for the authoritativ
 
 ## Running the CLI
 
-The CLI always reads a definitions file (defaults to `./definitions.defs`) and requires a generator subcommand:
+Provide one or more `.defs` files followed by a generator subcommand:
 
 ```bash
-cargo run -- <path/to/api.defs> typescript [TS OPTIONS]
-cargo run -- <path/to/api.defs> python-fast-api <app_name> [FASTAPI OPTIONS]
+cargo run -p cli -- ./api.defs typescript [TS OPTIONS]
+cargo run -p cli -- ./defs/users.defs ./defs/orders.defs python-fast-api <app> [FASTAPI OPTIONS]
 ```
 
-### Global flags
+### Common flags
 
-- `--split / -S` – Emit two files (`models` and `endpoints`). Otherwise a single `{prefix}generated.{ext}` file is written.
-- `--prefix / -P <string>` – Prepends a string to every emitted filename.
-- `--path / -p <dir>` – Directory that receives the generated files (`./src/generated` by default). The CLI currently always writes files; piping to stdout is on the roadmap (`todo.md`).
+- `-d, --desctructive` – Allow overwriting files in `--path` (default skips files that already exist).
+- `-v, --verbose` – Log extra progress while generating.
+- `-S, --split` – Emit separate `types_*` and `endpoints_*` files; otherwise everything for a module lives in a single file.
+- `-u, --united <name>` – Collapse all input definitions into one shared output file handle named `<name>` (pairs nicely with split to create `types_<name>` / `endpoint_<name>`).
+- `--prefix <string>` / `--postfix <string>` – Add affixes to every filename to keep variants side-by-side.
+- `-p, --path <dir>` – Destination directory for generated files (`./src/generated` by default).
 
 ### TypeScript options
 
-- `--error-handling <raise|result|pair>` – Control how network errors are represented.
-- `--type-enum <to_type|to_enum|to_string|to_algebraic>` – Controls how string unions (formerly enums) are materialised. Flag name is legacy but still wired to the same behaviour.
+- `-e, --error-handling <raise|result|pair>` – Choose whether helpers throw, return `Result`, or return `(data, err)` tuples.
+- `-t, --type-enum <to_type|to_enum|to_algebraic>` – Control how literal unions materialise (TypeScript aliases, enums, or tagged unions).
 
 ### FastAPI options
 
-- `<app_name>` (positional) – Module path (e.g. `app` or `server.api`) used in the `@{app}.<method>` decorators.
-- `--enum-handling <to_string|to_enum|to_class>` – Legacy flag name for union handling; determines whether literal unions stay as strings or become generated helpers (support for class/enum emission is tracking in `todo.md`).
+- `<app_name>` (positional) – Module or symbol (e.g. `app` or `server.api`) wired into decorator calls.
+- `-e, --enum-handling <to_type|to_union|to_enum_class>` – Decide how literal unions appear in generated Pydantic models.
 
 ## Output Layout
 
-- **Single file (default):** `<path>/<prefix>generated.ts|py`
-- **Split mode:** `<path>/<prefix>models.ts|py` and `<path>/<prefix>endpoints.ts|py`
+- **Decoupled (default):** Each `.defs` file produces its own `{prefix}{module}{postfix}.{ext}` bundle. Add `-S/--split` to emit `types_{module}` and `endpoints_{module}` instead.
+- **United:** Supplying `-u/--united <name>` merges all parsed modules into a single output. With split enabled this becomes `types_<name>` / `endpoint_<name>`; otherwise it is `{prefix}<name>{postfix}.{ext}`.
 
-The CLI will create or overwrite these files. Use `--prefix` together with per-branch directories if you need to keep multiple variants around.
+The CLI only overwrites files when `--desctructive` is set. Combine `--prefix`, `--postfix`, and `--path` to keep experimental output isolated from checked-in code.
 
 ## Repository Map
 
-- `src/main.rs` – CLI entry point and shared flags.
-- `src/parser/` – DSL AST + loader that normalises definitions.
-- `src/builder/` – Small helper for assembling indented code segments.
-- `src/generators/` – TypeScript and FastAPI emitters (`ts.rs`, `python.rs`).
-- `src/tests/` – Parser/unit tests (temporary-file refactor noted in `todo.md`).
-- `lang.md` – DSL reference + sample output.
+- `crates/cli/src/main.rs` – clap-based CLI surface that wires workspace modules into the binary.
+- `crates/lib/src/parser/` – DSL AST, loader, and definition normalisation (`definitions.rs`, `types.rs`, `endpoint.rs`).
+- `crates/lib/src/builder/` – Reusable code indentation/formatting helpers.
+- `crates/lib/src/generators/` – TypeScript and FastAPI backends plus shared traits (`ts.rs`, `python.rs`, `ffi.rs`).
+- `crates/lib/tests/` – Parser + generator regression tests with DSL fixtures (`unit.gdsl`).
+- `crates/lib/pest/lang.pest` – Grammar that powers the DSL parser.
+- `lang.md` – DSL walkthrough and example output.
 - `todo.md` – Known gaps and follow-up tasks.
+- `AGENTS.md` – Contributor guide covering coding style, commands, and review expectations.
+
+## Developing Locally
+
+This repo is a Cargo workspace with `crates/lib` providing the parser/generator core and `crates/cli` exposing it as a binary. Useful commands:
+
+```bash
+cargo fmt --all
+cargo clippy --all-targets --all-features -D warnings
+cargo test --workspace
+cargo run -p cli -- ./examples/api.defs typescript --path temp/
+```
+
+Point generator output at `temp/` or another disposable directory so local source files are not overwritten. When iterating on the grammar, focus runs with `cargo test -p lib parse_test`.
+
+## Contributing
+
+Read `AGENTS.md` for the contributor checklist (project layout, coding style, testing, and PR requirements). Summarise behaviour changes in PR descriptions, include any regenerated artifacts, and link the relevant entries from `todo.md` when closing outstanding work.

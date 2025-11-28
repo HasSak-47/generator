@@ -12,6 +12,7 @@ struct SplitType {
     wire_name: Option<String>,
 }
 
+/// Incrementally assembles metadata for a named type while parsing.
 pub struct TypeInformationBuilder {
     name: Option<String>,
     ty: Type,
@@ -111,6 +112,7 @@ impl TypeInformation {
     }
 }
 
+/// Builder used to attach filename/line/column context to endpoints.
 pub struct EndPointInformationBuilder {
     name: Option<String>,
     endpoint: EndPoint,
@@ -166,6 +168,7 @@ impl EndPointInformationBuilder {
     }
 }
 
+/// Metadata snapshot for one endpoint (name, location, definition).
 #[derive(Debug)]
 pub struct EndPointInformation {
     pub name: Option<String>,

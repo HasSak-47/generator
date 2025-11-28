@@ -13,11 +13,14 @@ use clap::{self, Arg, ArgAction, Args, Parser, Subcommand, arg};
 /// CLI surface exposed by `cargo run -- ...`.
 #[derive(Parser)]
 struct Cli {
+    /// One or more `.defs` files to load (in order).
     pub definitions: Vec<PathBuf>,
 
+    /// Overwrite files in `--path` even if they already exist.
     #[arg(short, long, default_value_t = false)]
     pub desctructive: bool,
 
+    /// Print extra progress info while building output.
     #[arg(short, long, default_value_t = false)]
     pub verbose: bool,
 
@@ -25,7 +28,7 @@ struct Cli {
     #[arg(short = 'S', long, default_value_t = false)]
     pub split: bool,
 
-    /// Unite all the models and enpoints into a file handle
+    /// Unite all the models and enpoints into a single logical module name.
     #[arg(short, long)]
     pub united: Option<String>,
 
@@ -40,7 +43,7 @@ struct Cli {
     #[command(subcommand)]
     pub generator: Generators,
 
-    /// Destination directory for generated files.
+    /// Destination directory for generated files (created if missing).
     #[arg(short, long, default_value_os_t = {PathBuf::from("./src/generated")})]
     pub path: PathBuf,
 }

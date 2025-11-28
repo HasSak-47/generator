@@ -12,35 +12,44 @@ use crate::{
     },
 };
 
+/// Exposes `Type` to foreign code without leaking Rust's layout.
 #[repr(C)]
 pub struct TypeWrapper {
     pub defs: *const TypeDef,
 }
 
+/// Wrapper around `TypeInformation` for FFI boundaries.
 #[repr(C)]
 pub struct TypeInfoWrapper {
     pub defs: *const TypeInformation,
 }
 
+/// Wrapper around `EndPoint` for FFI boundaries.
 #[repr(C)]
 pub struct EndpointWrapper {
     pub defs: *const EndpointDef,
 }
 
+/// Wrapper around the full `Definitons` map for FFI consumers.
 #[repr(C)]
 pub struct DefinitionsWrapper {
     pub defs: *const Definitons,
 }
 
+/// Signature for callbacks that emit type headers (imports, etc).
 pub type TypeHeader = extern "C" fn(*const c_void, DefinitionsWrapper) -> CodeFFI;
+/// Signature for callbacks that emit endpoint headers.
 pub type EndpointHeader = extern "C" fn(*const c_void, DefinitionsWrapper) -> CodeFFI;
 pub type Type =
     extern "C" fn(*const c_void, *const c_char, TypeWrapper, c_char, DefinitionsWrapper) -> CodeFFI;
+/// Signature for callbacks that emit domain↔wire translation helpers.
 pub type TypeTranslation =
     extern "C" fn(*const c_void, c_char, TypeInfoWrapper, DefinitionsWrapper) -> CodeFFI;
+/// Signature for callbacks that emit endpoint functions.
 pub type Endpoint =
     extern "C" fn(*const c_void, *const c_char, EndpointWrapper, DefinitionsWrapper) -> CodeFFI;
 
+/// Trait object adapter that lets native generators be exposed via FFI.
 #[repr(C)]
 #[allow(dead_code)]
 struct GeneratorFFI {

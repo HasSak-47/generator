@@ -56,6 +56,16 @@ get_summary(status: Status?) @get "/sales/summary" -> SaleSummary
 - `Type?` results in optionals (`T | null` or `Optional[T]`).
 - Arrays use `Type[]`.
 - Endpoints declare positional parameters; bindings are inferred from path segments vs body payloads.
+- Verbs are declared via `@get`, `@post`, `@put`, `@patch`, or `@delete` followed by a quoted route string.
+
+### Binding rules
+
+1. **Path parameters** – Any `{foo}` segment in the path binds to the parameter of the same name.
+2. **Body payloads** – Struct parameters not used in the path become the request body and are serialized using the generator-specific builders.
+3. **Query parameters** – Remaining scalar fields become query strings. Optional fields (`Type?`) translate to nullable query args.
+4. **Return values** – The `-> Type` arrow drives both the client response type and FastAPI `response_model`.
+
+Keep DSL definitions small and composable. For larger APIs, split `*.defs` files by domain (e.g., `orders.defs`, `inventory.defs`) and load each with separate CLI invocations or concatenate them before generation.
 
 ## Generated Code Sketches
 
@@ -110,4 +120,4 @@ export async function get_product(id: number): Promise<Product> {
 }
 ```
 
-Use `cargo run -- <defs> typescript --help` (or the `python-fast-api` variant) to inspect the switches that tweak union handling and error-handling behaviour at generation time.
+Use `cargo run -- <defs> typescript --help` (or the `python-fast-api` variant) to inspect the switches that tweak union handling and error-handling behaviour at generation time. When editing the grammar or DSL samples, run `cargo test -p lib parse_test` to validate parser output before sharing regenerated TypeScript or FastAPI code.
