@@ -479,16 +479,45 @@ impl Definitons {
     where
         G: Generator + ?Sized,
     {
-        let mut map = HashMap::<String, Code>::new();
-        let mut named_types: Vec<_> = self.named_types.iter().collect();
-        named_types.sort_by(|ti1, ti2| ti1.0.cmp(ti2.0));
+        let mut to_wire = HashSet::new();
+        let mut to_domain = HashSet::new();
+        for (_, info) in &self.end_points {
+            for (_, ty) in &info.endpoint.params {
+                let deps = ty.get_dependencies(self);
+                to_wire.extend(deps);
+            }
+            let deps = info.endpoint.return_type.get_dependencies(self);
+            to_domain.extend(deps);
+        }
 
-        for (_, ty) in named_types {
+        let mut map = HashMap::<String, Code>::new();
+        let mut to_wire: Vec<_> = to_wire.iter().collect();
+        let mut to_domain: Vec<_> = to_domain.iter().collect();
+        to_wire.sort_by(|ti1, ti2| ti1.cmp(ti2));
+        to_domain.sort_by(|ti1, ti2| ti1.cmp(ti2));
+
+        for name in to_domain {
+            let ty = self.get_named_type(name).unwrap();
             let path = ty.path.file_name().unwrap().to_str().unwrap().to_string();
             if ty.conversion.is_none() {
                 continue;
             }
-            let code = generator.generate_type_translation(false, ty, self);
+            let mut code = Code::new_segment();
+            code.add_child(generator.generate_to_domain_translation(false, ty, self));
+            if !map.contains_key(&path) {
+                map.insert(path.clone(), Code::new_segment());
+            }
+            map.get_mut(&path).unwrap().add_child(code);
+        }
+
+        for name in to_wire {
+            let ty = self.get_named_type(name).unwrap();
+            let path = ty.path.file_name().unwrap().to_str().unwrap().to_string();
+            if ty.conversion.is_none() {
+                continue;
+            }
+            let mut code = Code::new_segment();
+            code.add_child(generator.generate_to_wire_translation(false, ty, self));
             if !map.contains_key(&path) {
                 map.insert(path.clone(), Code::new_segment());
             }

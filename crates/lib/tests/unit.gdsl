@@ -24,8 +24,8 @@ type Entry = {
 }
 
 request_foo(str: string, date: string as datetime, foo: Foo) @put "/request_foo/" -> Foo[]
-request_bar(str: string, date: string as datetime, bar: Bar) @post "/request_bar/" -> Bar[]
-request_baz(str: string, date: string as datetime, baz: Baz) @get "/request_baz/" -> Baz[]
+request_bar(str: string, date: string as datetime) @post "/request_bar/" -> Bar[]
+request_baz(str: string, date: string as datetime) @get "/request_baz/" -> Baz[]
 request_log(date: string as datetime) @get "/log/" -> <string, Entry[]>
 delete_log(id: int) @delete "/log/{id}"
 

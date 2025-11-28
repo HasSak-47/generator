@@ -182,14 +182,21 @@ impl Default for Type {
 }
 
 impl Type {
-    pub fn get_dependencies(&self) -> HashSet<String> {
+    pub fn get_dependencies(&self, defs: &Definitons) -> HashSet<String> {
         match self {
-            Self::Array(arr) => return arr.ty.get_dependencies(),
-            Self::Optional(opt) => return opt.ty.get_dependencies(),
+            Self::Named(name) => {
+                let mut set = HashSet::new();
+                set.insert(name.clone());
+                set.extend(defs.get_named_type(name).unwrap().ty.get_dependencies(defs));
+
+                return set;
+            }
+            Self::Array(arr) => return arr.ty.get_dependencies(defs),
+            Self::Optional(opt) => return opt.ty.get_dependencies(defs),
             Self::Union(union) => {
                 let mut v = HashSet::new();
                 for ty in &union.members {
-                    let w = ty.ty.get_dependencies();
+                    let w = ty.ty.get_dependencies(defs);
                     v.extend(w.into_iter());
                 }
 
@@ -198,11 +205,16 @@ impl Type {
             Self::Struct(s) => {
                 let mut v = HashSet::new();
                 for (_, ty) in &s.members {
-                    let w = ty.get_dependencies();
+                    let w = ty.get_dependencies(defs);
                     v.extend(w.into_iter());
                 }
 
                 return v;
+            }
+            Self::Map(m) => {
+                let mut h = HashSet::new();
+                h.extend(m.val.get_dependencies(defs));
+                return h;
             }
             _ => HashSet::new(),
         }
