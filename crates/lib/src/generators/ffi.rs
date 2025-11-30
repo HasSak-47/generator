@@ -64,6 +64,7 @@ struct GeneratorFFI {
 
 impl GeneratorFFI {
     #[allow(dead_code)]
+    #[unsafe(no_mangle)]
     extern "C" fn new() -> GeneratorFFI {
         return GeneratorFFI {
             this: null(),
@@ -77,24 +78,28 @@ impl GeneratorFFI {
     }
 
     #[allow(dead_code)]
+    #[unsafe(no_mangle)]
     extern "C" fn set_header_type(mut self, t: TypeHeader) -> GeneratorFFI {
         self.header_type = Some(t);
         self
     }
 
     #[allow(dead_code)]
+    #[unsafe(no_mangle)]
     extern "C" fn set_header_endpoint(mut self, t: EndpointHeader) -> GeneratorFFI {
         self.header_endpoint = Some(t);
         self
     }
 
     #[allow(dead_code)]
+    #[unsafe(no_mangle)]
     extern "C" fn set_type(mut self, t: Type) -> GeneratorFFI {
         self.ty = Some(t);
         self
     }
 
     #[allow(dead_code)]
+<<<<<<< HEAD
     extern "C" fn set_wire_translation(mut self, t: TypeTranslation) -> GeneratorFFI {
         self.wire_translation = Some(t);
         self
@@ -103,16 +108,23 @@ impl GeneratorFFI {
     #[allow(dead_code)]
     extern "C" fn set_domain_translation(mut self, t: TypeTranslation) -> GeneratorFFI {
         self.domain_translation = Some(t);
+=======
+    #[unsafe(no_mangle)]
+    extern "C" fn set_type_translation(mut self, t: TypeTranslation) -> GeneratorFFI {
+        self.ty_translation = Some(t);
+>>>>>>> 00ad704 (idk)
         self
     }
 
     #[allow(dead_code)]
+    #[unsafe(no_mangle)]
     extern "C" fn set_endpoint(mut self, t: Endpoint) -> GeneratorFFI {
         self.endpoint = Some(t);
         self
     }
 
     #[allow(dead_code)]
+    #[unsafe(no_mangle)]
     extern "C" fn set_this(mut self, t: *const c_void) -> GeneratorFFI {
         self.this = t;
         self
